@@ -9,6 +9,7 @@ import {
   upsertEmployee
 } from './services/employeesRepository';
 import { signInWithGoogle, startAuthListener } from './services/authGate';
+import { enableCloud, getCloudDisableReason, isCloudDisabled } from './services/cloudMode';
 import { isFirebaseConfigured } from './services/firebase';
 import { loadScheduleByMonth, saveScheduleByMonth, subscribeScheduleByMonth } from './services/scheduleRepository';
 import { loadUserTheme } from './services/userSettingsRepository';
@@ -34,9 +35,12 @@ export default function App() {
   const [message, setMessage] = useState('לחיצה על תא מחליפה בין: ריק -> בוקר -> לילה -> X');
   const [employeesReady, setEmployeesReady] = useState(false);
   const [userTheme, setUserTheme] = useState(null);
+  const [cloudBannerVersion, setCloudBannerVersion] = useState(0);
   const exportRef = useRef(null);
   const startupLoadedUidRef = useRef('');
   const authorized = authStatus === 'authorized';
+  const cloudDisabled = isCloudDisabled();
+  const cloudDisableReason = getCloudDisableReason();
 
   const monthMeta = useMemo(() => getMonthMeta(state.monthKey), [state.monthKey]);
   const validation = useMemo(() => validateSchedule(state), [state]);
@@ -109,6 +113,12 @@ export default function App() {
       return () => {};
     }
 
+    if (isCloudDisabled()) {
+      setBusy(false);
+      setMessage('הענן כבוי במצב לא מקוון');
+      return () => {};
+    }
+
     setBusy(true);
     let firstSnapshot = true;
 
@@ -147,7 +157,7 @@ export default function App() {
     return () => {
       unsubscribe();
     };
-  }, [authorized, state.monthKey, employeesReady, dispatch]);
+  }, [authorized, state.monthKey, employeesReady, dispatch, cloudBannerVersion]);
 
   const handleSignIn = async () => {
     setAuthBusy(true);
@@ -179,6 +189,11 @@ export default function App() {
       return;
     }
 
+    if (isCloudDisabled()) {
+      setMessage('הענן כבוי במצב לא מקוון');
+      return;
+    }
+
     setBusy(true);
     setMessage('שומר לענן...');
 
@@ -203,6 +218,11 @@ export default function App() {
 
     if (!isFirebaseConfigured) {
       setMessage('הענן לא מוגדר. יש למלא משתני פיירבייס.');
+      return;
+    }
+
+    if (isCloudDisabled()) {
+      setMessage('הענן כבוי במצב לא מקוון');
       return;
     }
 
@@ -387,6 +407,23 @@ export default function App() {
         onLoad={handleLoad}
         onExportPdf={handleExportPdf}
       />
+      {cloudDisabled ? (
+        <div className="cloudBanner no-print" dir="rtl">
+          <span>
+            מצב ענן כבוי ({cloudDisableReason || 'לא ידוע'}). האפליקציה עובדת במצב לא מקוון.
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              enableCloud();
+              setCloudBannerVersion((current) => current + 1);
+              window.location.reload();
+            }}
+          >
+            נסה להפעיל ענן שוב
+          </button>
+        </div>
+      ) : null}
       <ThemePanel open={themePanelOpen} />
 
       <main className="app__main">

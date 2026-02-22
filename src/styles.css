@@ -84,6 +84,28 @@ select {
   white-space: nowrap;
 }
 
+.cloudBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  background: #fff7ed;
+  border: var(--grid-border-width) solid #fdba74;
+  border-radius: var(--radius);
+  padding: 0.45rem 0.65rem;
+  color: #7c2d12;
+  font-size: 0.88rem;
+}
+
+.cloudBanner button {
+  border: var(--grid-border-width) solid #fdba74;
+  background: #ffffff;
+  border-radius: 8px;
+  padding: 0.35rem 0.55rem;
+  cursor: pointer;
+  color: #7c2d12;
+}
+
 .themePanel {
   background: var(--panel-bg);
   border: var(--grid-border-width) solid var(--grid-border-color);
