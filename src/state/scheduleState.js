@@ -5,13 +5,6 @@ import { generateSchedule } from '../engine/generator';
 import { useHistoryReducer } from './historyState';
 
 const DEFAULT_NAMES = ['נועה', 'עמית', 'ליאור', 'מאיה', 'דניאל', 'גל', 'יעל', 'עומר', 'רוני', 'עדי', 'שי', 'ניב'];
-export const DEFAULT_THEME = {
-  variant: 'default',
-  fontScale: 1,
-  headerStyle: 'green',
-  zebraRows: true,
-  thickBorders: 'none'
-};
 
 export function createInitialState(monthKey = getCurrentMonthKey()) {
   const employees = DEFAULT_NAMES.map((name, index) => ({
@@ -30,8 +23,7 @@ export function createInitialState(monthKey = getCurrentMonthKey()) {
     monthKey,
     employees,
     schedule,
-    scheduleMeta: {},
-    theme: DEFAULT_THEME
+    scheduleMeta: {}
   };
 }
 
@@ -54,20 +46,6 @@ export function scheduleReducer(state, action) {
         employees,
         schedule: sanitizeLoadedSchedule(state.monthKey, state.schedule, employees),
         scheduleMeta: sanitizeScheduleMeta(state.monthKey, state.scheduleMeta, employees)
-      };
-    }
-
-    case 'SET_THEME': {
-      return {
-        ...state,
-        theme: normalizeTheme({ ...state.theme, ...(action.payload ?? {}) })
-      };
-    }
-
-    case 'LOAD_THEME': {
-      return {
-        ...state,
-        theme: normalizeTheme(action.payload ?? state.theme)
       };
     }
 
@@ -313,30 +291,5 @@ function normalizeEmployee(employee) {
     maxNightShifts: Number(employee.maxNightShifts ?? 6),
     maxMorningShifts: Number(employee.maxMorningShifts ?? employee.maxDayShifts ?? 6),
     unavailableWeekdays: Array.isArray(employee.unavailableWeekdays) ? employee.unavailableWeekdays : []
-  };
-}
-
-function normalizeTheme(theme) {
-  const fontScaleNumber = Number(theme?.fontScale ?? DEFAULT_THEME.fontScale);
-  const safeScale = [1, 1.1, 1.2].includes(fontScaleNumber) ? fontScaleNumber : DEFAULT_THEME.fontScale;
-  const variant =
-    theme?.variant === 'compact' || theme?.variant === 'contrast'
-      ? theme.variant
-      : DEFAULT_THEME.variant;
-  const headerStyle =
-    theme?.headerStyle === 'dark' || theme?.headerStyle === 'light'
-      ? theme.headerStyle
-      : DEFAULT_THEME.headerStyle;
-  const thickBorders =
-    theme?.thickBorders === 'sundaysOnly' || theme?.thickBorders === 'custom'
-      ? theme.thickBorders
-      : DEFAULT_THEME.thickBorders;
-
-  return {
-    variant,
-    fontScale: safeScale,
-    headerStyle,
-    zebraRows: theme?.zebraRows === false ? false : true,
-    thickBorders
   };
 }
