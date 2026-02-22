@@ -28,6 +28,7 @@ export default function App() {
   const [compactMode, setCompactMode] = useState(true);
   const [themePanelOpen, setThemePanelOpen] = useState(false);
   const [exportMode, setExportMode] = useState(false);
+  const [pdfExportMode, setPdfExportMode] = useState(false);
   const [message, setMessage] = useState('לחיצה על תא מחליפה בין: ריק -> בוקר -> לילה -> X');
   const [employeesReady, setEmployeesReady] = useState(false);
   const exportRef = useRef(null);
@@ -213,6 +214,7 @@ export default function App() {
 
     setMessage('מייצא PDF...');
     setExportMode(true);
+    setPdfExportMode(true);
     try {
       await new Promise((resolve) => requestAnimationFrame(resolve));
 
@@ -246,6 +248,7 @@ export default function App() {
       setMessage(`ה־PDF יוצא עבור ${state.monthKey}`);
     } finally {
       setExportMode(false);
+      setPdfExportMode(false);
     }
   };
 
@@ -299,7 +302,7 @@ export default function App() {
   }
 
   return (
-    <div className={`app ${compactMode ? 'compactMode' : ''}`} dir="rtl">
+    <div className={`app ${compactMode ? 'compactMode' : ''} ${pdfExportMode ? 'pdf-export' : ''}`} dir="rtl">
       <header className="app__header">
         <h1>sched rcc app</h1>
         <p>מערכת סידור משמרות חודשית</p>

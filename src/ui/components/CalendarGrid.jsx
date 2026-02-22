@@ -89,8 +89,8 @@ function renderHeaderRows(monthDays, keyPrefix) {
             key={`${keyPrefix}-weekday-${day.dayNumber}`}
             className={
               day.isWeekend
-                ? 'grid__dayCell grid__headerCell grid__headerBottom is-weekend'
-                : 'grid__dayCell grid__headerCell grid__headerBottom'
+                ? 'grid__dayCell grid__headerCell grid__headerBottom grid__weekdayLabelCell is-weekend'
+                : 'grid__dayCell grid__headerCell grid__headerBottom grid__weekdayLabelCell'
             }
           >
             {day.weekdayLabel}

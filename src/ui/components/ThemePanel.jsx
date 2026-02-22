@@ -19,7 +19,10 @@ const DEFAULT_THEME = {
   '--shift-x-text': '#0f172a',
   '--shift-morning-bg': '#d9f6eb',
   '--shift-night-bg': '#e1eaff',
-  '--shift-x-bg': '#ffe6ea'
+  '--shift-x-bg': '#ffe6ea',
+  '--weekday-header-gradient-enabled': '0',
+  '--weekday-header-gradient-start': '#e8f3ff',
+  '--weekday-header-gradient-end': '#d9ecff'
 };
 
 const CONTROL_FIELDS = [
@@ -52,7 +55,10 @@ const CONTROL_FIELDS = [
   { key: '--shift-x-text', label: 'צבע אות משמרת X', type: 'color' },
   { key: '--shift-morning-bg', label: 'צבע בוקר', type: 'color' },
   { key: '--shift-night-bg', label: 'צבע לילה', type: 'color' },
-  { key: '--shift-x-bg', label: 'צבע X', type: 'color' }
+  { key: '--shift-x-bg', label: 'צבע X', type: 'color' },
+  { key: '--weekday-header-gradient-enabled', label: 'גרדיאנט שורת ימי שבוע', type: 'toggle' },
+  { key: '--weekday-header-gradient-start', label: 'גרדיאנט ימי שבוע - צבע התחלה', type: 'color' },
+  { key: '--weekday-header-gradient-end', label: 'גרדיאנט ימי שבוע - צבע סיום', type: 'color' }
 ];
 
 export default function ThemePanel({ open }) {
@@ -113,6 +119,12 @@ export default function ThemePanel({ open }) {
                 value={theme[field.key]}
                 onChange={(event) => handleChange(field.key, event.target.value)}
               />
+            ) : field.type === 'toggle' ? (
+              <input
+                type="checkbox"
+                checked={theme[field.key] === '1'}
+                onChange={(event) => handleChange(field.key, event.target.checked ? '1' : '0')}
+              />
             ) : (
               <div className="themePanel__rangeWrap">
                 <input
@@ -151,4 +163,9 @@ function applyTheme(theme) {
 
     root.style.setProperty(key, value);
   });
+
+  root.classList.toggle(
+    'weekday-header-gradient-on',
+    String(theme['--weekday-header-gradient-enabled']) === '1'
+  );
 }
