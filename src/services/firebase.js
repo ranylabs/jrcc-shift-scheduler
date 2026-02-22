@@ -1,5 +1,5 @@
-import { initializeApp } from 'firebase/app';
-import { getFirestore } from 'firebase/firestore';
+import { initializeApp } from "firebase/app";
+import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -10,7 +10,17 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
-export const isFirebaseConfigured = Object.values(firebaseConfig).every(Boolean);
+// 👇 רק כאן!
+console.log("Firebase config:", firebaseConfig);
+
+export const isFirebaseConfigured =
+  Object.values(firebaseConfig).every(Boolean);
 
 const app = isFirebaseConfigured ? initializeApp(firebaseConfig) : null;
+
 export const db = app ? getFirestore(app) : null;
+// Users allowed to access the system
+export const ALLOWED_USERS = [
+  "ranyakar@gmail.com",
+  "rcchaifa@gmail.com"
+];
