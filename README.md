@@ -38,3 +38,7 @@ Monthly shift scheduling web app built with React + Vite + Firebase Firestore.
 
 - Firestore functions will throw a clear error until `VITE_FIREBASE_*` env vars are configured.
 - Manager override is supported by direct manual cell editing.
+## Deploy
+
+- הפריסה מתבצעת אוטומטית ל-GitHub Pages דרך GitHub Actions בכל `push` ל-`main`.
+- אין צורך בהעתקה ידנית ל-`docs`.

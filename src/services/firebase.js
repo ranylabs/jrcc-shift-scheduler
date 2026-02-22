@@ -1,4 +1,4 @@
-import { initializeApp } from "firebase/app";
+﻿import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
 
@@ -11,19 +11,12 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
-// 👇 רק כאן!
-console.log("Firebase config:", firebaseConfig);
-
 export const isFirebaseConfigured =
   Object.values(firebaseConfig).every(Boolean);
 
 const app = isFirebaseConfigured ? initializeApp(firebaseConfig) : null;
 
 export const db = app ? getFirestore(app) : null;
-// Users allowed to access the system
-
+export const auth = app ? getAuth(app) : null;
 export const googleProvider = new GoogleAuthProvider();
-export const ALLOWED_USERS = [
-  "ranyakar@gmail.com",
-  "rcchaifa@gmail.com"
-];
+export const ALLOWED_USERS = ["ranyakar@gmail.com", "rcchaifa@gmail.com"];

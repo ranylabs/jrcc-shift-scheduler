@@ -8,6 +8,7 @@ import {
   subscribeEmployees,
   upsertEmployee
 } from './services/employeesRepository';
+import { startAuthListener } from './services/authGate';
 import { isFirebaseConfigured } from './services/firebase';
 import { loadScheduleByMonth, saveScheduleByMonth } from './services/scheduleRepository';
 import { useScheduleStore } from './state/scheduleState';
@@ -18,6 +19,7 @@ import Toolbar from './ui/components/Toolbar';
 
 export default function App() {
   const { state, dispatch, undo, redo, canUndo, canRedo } = useScheduleStore();
+  const [authorized, setAuthorized] = useState(false);
   const [busy, setBusy] = useState(false);
   const [compactMode, setCompactMode] = useState(true);
   const [themePanelOpen, setThemePanelOpen] = useState(false);
@@ -29,6 +31,16 @@ export default function App() {
 
   const monthMeta = useMemo(() => getMonthMeta(state.monthKey), [state.monthKey]);
   const validation = useMemo(() => validateSchedule(state), [state]);
+
+  useEffect(() => {
+    startAuthListener(
+      () => setAuthorized(true),
+      () => {
+        alert('אין הרשאה למערכת');
+        setAuthorized(false);
+      }
+    );
+  }, []);
 
   useEffect(() => {
     if (!isFirebaseConfigured) {
@@ -223,6 +235,14 @@ export default function App() {
         setBusy(false);
       }
     }
+  }
+
+  if (!authorized) {
+    return (
+      <div style={{ padding: 40, textAlign: 'center' }} dir="rtl">
+        בודק הרשאות...
+      </div>
+    );
   }
 
   return (
