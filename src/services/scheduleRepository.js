@@ -1,4 +1,4 @@
-﻿import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+﻿import { doc, getDoc, onSnapshot, serverTimestamp, setDoc } from 'firebase/firestore';
 import { db, isFirebaseConfigured } from './firebase';
 
 const COLLECTION = 'schedules';
@@ -33,6 +33,33 @@ export async function loadScheduleByMonth(monthKey) {
     schedule: data.schedule ?? {},
     scheduleMeta: data.scheduleMeta ?? {}
   };
+}
+
+export function subscribeScheduleByMonth(monthKey, onUpdate, onError) {
+  assertFirebase();
+
+  const ref = doc(db, COLLECTION, monthKey);
+  return onSnapshot(
+    ref,
+    (snapshot) => {
+      if (!snapshot.exists()) {
+        onUpdate(null);
+        return;
+      }
+
+      const data = snapshot.data();
+      onUpdate({
+        monthKey,
+        schedule: data.schedule ?? {},
+        scheduleMeta: data.scheduleMeta ?? {}
+      });
+    },
+    (error) => {
+      if (onError) {
+        onError(error);
+      }
+    }
+  );
 }
 
 function assertFirebase() {

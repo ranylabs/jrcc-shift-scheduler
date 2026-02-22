@@ -1,23 +1,19 @@
-﻿import { collection, deleteDoc, doc, onSnapshot, orderBy, query, setDoc } from 'firebase/firestore';
+﻿import { collection, deleteDoc, doc, getDocs, orderBy, query, setDoc } from 'firebase/firestore';
 import { db, isFirebaseConfigured } from './firebase';
 
 const COLLECTION = 'employees';
 
-export function subscribeEmployees(onUpdate) {
+export async function loadEmployeesOnce() {
   if (!isFirebaseConfigured || !db) {
-    onUpdate([]);
-    return () => {};
+    return [];
   }
 
   const employeesQuery = query(collection(db, COLLECTION), orderBy('name'));
-  return onSnapshot(employeesQuery, (snapshot) => {
-    const employees = snapshot.docs.map((item) => ({
-      id: item.id,
-      ...item.data()
-    }));
-
-    onUpdate(employees);
-  });
+  const snapshot = await getDocs(employeesQuery);
+  return snapshot.docs.map((item) => ({
+    id: item.id,
+    ...item.data()
+  }));
 }
 
 export async function upsertEmployee(employee) {

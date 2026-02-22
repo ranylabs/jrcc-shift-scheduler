@@ -5,12 +5,13 @@ import { getMonthMeta, shiftMonth } from './engine/dateUtils';
 import { validateSchedule } from './engine/validation';
 import {
   deleteEmployeeById,
-  subscribeEmployees,
+  loadEmployeesOnce,
   upsertEmployee
 } from './services/employeesRepository';
 import { signInWithGoogle, startAuthListener } from './services/authGate';
 import { isFirebaseConfigured } from './services/firebase';
-import { loadScheduleByMonth, saveScheduleByMonth } from './services/scheduleRepository';
+import { loadScheduleByMonth, saveScheduleByMonth, subscribeScheduleByMonth } from './services/scheduleRepository';
+import { loadUserTheme } from './services/userSettingsRepository';
 import { useScheduleStore } from './state/scheduleState';
 import AuthGate from './ui/components/AuthGate';
 import CalendarGrid from './ui/components/CalendarGrid';
@@ -24,6 +25,7 @@ export default function App() {
   const [authBusy, setAuthBusy] = useState(false);
   const [authError, setAuthError] = useState(null);
   const [deniedEmail, setDeniedEmail] = useState('');
+  const [authUser, setAuthUser] = useState(null);
   const [busy, setBusy] = useState(false);
   const [compactMode, setCompactMode] = useState(true);
   const [themePanelOpen, setThemePanelOpen] = useState(false);
@@ -31,8 +33,9 @@ export default function App() {
   const [pdfExportMode, setPdfExportMode] = useState(false);
   const [message, setMessage] = useState('לחיצה על תא מחליפה בין: ריק -> בוקר -> לילה -> X');
   const [employeesReady, setEmployeesReady] = useState(false);
+  const [userTheme, setUserTheme] = useState(null);
   const exportRef = useRef(null);
-  const loadRequestRef = useRef(0);
+  const startupLoadedUidRef = useRef('');
   const authorized = authStatus === 'authorized';
 
   const monthMeta = useMemo(() => getMonthMeta(state.monthKey), [state.monthKey]);
@@ -43,6 +46,7 @@ export default function App() {
       setAuthStatus(nextState.status);
       setDeniedEmail(nextState.deniedEmail ?? '');
       setAuthError(nextState.error ?? null);
+      setAuthUser(nextState.user ?? null);
     });
 
     return () => {
@@ -53,6 +57,8 @@ export default function App() {
   useEffect(() => {
     if (!authorized) {
       setEmployeesReady(false);
+      setUserTheme(null);
+      startupLoadedUidRef.current = '';
       return () => {};
     }
 
@@ -61,23 +67,87 @@ export default function App() {
       return () => {};
     }
 
-    const unsubscribe = subscribeEmployees((employees) => {
-      dispatch({ type: 'SET_EMPLOYEES', payload: employees });
-      setEmployeesReady(true);
-    });
+    const uid = authUser?.uid;
+    if (!uid) {
+      return () => {};
+    }
+
+    if (startupLoadedUidRef.current === uid) {
+      return () => {};
+    }
+
+    startupLoadedUidRef.current = uid;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const [employees, theme] = await Promise.all([loadEmployeesOnce(), loadUserTheme(uid)]);
+        if (cancelled) {
+          return;
+        }
+
+        dispatch({ type: 'SET_EMPLOYEES', payload: employees });
+        setUserTheme(theme);
+        setEmployeesReady(true);
+      } catch {
+        if (cancelled) {
+          return;
+        }
+
+        setMessage('טעינת עובדים והגדרות מהענן נכשלה');
+        setEmployeesReady(true);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authorized, authUser?.uid, dispatch]);
+
+  useEffect(() => {
+    if (!authorized || !isFirebaseConfigured || !employeesReady) {
+      return () => {};
+    }
+
+    setBusy(true);
+    let firstSnapshot = true;
+
+    const unsubscribe = subscribeScheduleByMonth(
+      state.monthKey,
+      (loaded) => {
+        if (loaded) {
+          dispatch({
+            type: 'LOAD_MONTH',
+            payload: {
+              schedule: loaded.schedule ?? {},
+              scheduleMeta: loaded.scheduleMeta ?? {}
+            }
+          });
+        }
+
+        if (firstSnapshot) {
+          if (!loaded) {
+            setMessage(`לא נמצאו נתונים לחודש ${state.monthKey}`);
+          } else {
+            setMessage(`נטען אוטומטית חודש ${state.monthKey}`);
+          }
+          setBusy(false);
+          firstSnapshot = false;
+        }
+      },
+      () => {
+        if (firstSnapshot) {
+          setMessage('טעינה אוטומטית מהענן נכשלה');
+          setBusy(false);
+          firstSnapshot = false;
+        }
+      }
+    );
 
     return () => {
       unsubscribe();
     };
-  }, [authorized, dispatch]);
-
-  useEffect(() => {
-    if (!authorized || !isFirebaseConfigured || !employeesReady) {
-      return;
-    }
-
-    loadScheduleForMonth(state.monthKey, true);
-  }, [authorized, state.monthKey, employeesReady]);
+  }, [authorized, state.monthKey, employeesReady, dispatch]);
 
   const handleSignIn = async () => {
     setAuthBusy(true);
@@ -255,17 +325,11 @@ export default function App() {
   const cloudStatus = busy ? 'מסנכרן...' : isFirebaseConfigured ? 'מחובר לענן' : 'לא מחובר לענן';
 
   async function loadScheduleForMonth(monthKey, isAutoLoad) {
-    const requestId = loadRequestRef.current + 1;
-    loadRequestRef.current = requestId;
-
     setBusy(true);
     setMessage(isAutoLoad ? 'טעינה אוטומטית מהענן...' : 'נטען מהענן...');
 
     try {
       const loaded = await loadScheduleByMonth(monthKey);
-      if (loadRequestRef.current !== requestId) {
-        return;
-      }
 
       if (!loaded) {
         setMessage(
@@ -279,13 +343,9 @@ export default function App() {
       dispatch({ type: 'LOAD_MONTH', payload: { schedule: normalizedSchedule, scheduleMeta: normalizedMeta } });
       setMessage(isAutoLoad ? `נטען אוטומטית חודש ${monthKey}` : `נטען חודש ${monthKey}`);
     } catch {
-      if (loadRequestRef.current === requestId) {
-        setMessage(isAutoLoad ? 'טעינה אוטומטית מהענן נכשלה' : 'טעינה מהענן נכשלה');
-      }
+      setMessage(isAutoLoad ? 'טעינה אוטומטית מהענן נכשלה' : 'טעינה מהענן נכשלה');
     } finally {
-      if (loadRequestRef.current === requestId) {
-        setBusy(false);
-      }
+      setBusy(false);
     }
   }
 
