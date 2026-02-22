@@ -33,7 +33,7 @@ export default function CalendarGrid({
               {monthDays.map((day) => (
                 <div
                   key={`${employee.id}-${day.dayNumber}`}
-                  className={day.isWeekend ? 'grid__dayCell is-weekend' : 'grid__dayCell'}
+                  className={buildDayCellClass(day)}
                 >
                   <ScheduleCell
                     value={normalizeCellValue(schedule?.[day.dayNumber]?.[employee.id])}
@@ -54,7 +54,11 @@ export default function CalendarGrid({
             return (
               <div
                 key={`fix-${day.dayNumber}`}
-                className={day.isWeekend ? 'grid__dayCell grid__fixCell is-weekend' : 'grid__dayCell grid__fixCell'}
+                className={
+                  day.isWeekend
+                    ? `grid__dayCell grid__fixCell is-weekend${day.weekday === 0 ? ' is-sunday' : ''}`
+                    : `grid__dayCell grid__fixCell${day.weekday === 0 ? ' is-sunday' : ''}`
+                }
                 title={issues.join(' | ')}
               >
                 {issues.length > 0 ? 'FIX' : ''}
@@ -75,7 +79,7 @@ function renderHeaderRows(monthDays, keyPrefix) {
         {monthDays.map((day) => (
           <div
             key={`${keyPrefix}-day-${day.dayNumber}`}
-            className={day.isWeekend ? 'grid__dayCell grid__headerCell is-weekend' : 'grid__dayCell grid__headerCell'}
+            className={buildHeaderCellClass(day)}
           >
             {day.dayNumber}
           </div>
@@ -89,8 +93,8 @@ function renderHeaderRows(monthDays, keyPrefix) {
             key={`${keyPrefix}-weekday-${day.dayNumber}`}
             className={
               day.isWeekend
-                ? 'grid__dayCell grid__headerCell grid__headerBottom is-weekend'
-                : 'grid__dayCell grid__headerCell grid__headerBottom'
+                ? `grid__dayCell grid__headerCell grid__headerBottom is-weekend${day.weekday === 0 ? ' is-sunday' : ''}`
+                : `grid__dayCell grid__headerCell grid__headerBottom${day.weekday === 0 ? ' is-sunday' : ''}`
             }
           >
             {day.weekdayLabel}
@@ -112,4 +116,20 @@ function normalizeCellValue(cell) {
 function buildSummary(stats) {
   const safe = stats ?? { total: 0, morning: 0, night: 0 };
   return `סה"כ: ${safe.total} | בוקר: ${safe.morning} | לילה: ${safe.night}`;
+}
+
+function buildDayCellClass(day) {
+  if (day.isWeekend) {
+    return `grid__dayCell is-weekend${day.weekday === 0 ? ' is-sunday' : ''}`;
+  }
+
+  return `grid__dayCell${day.weekday === 0 ? ' is-sunday' : ''}`;
+}
+
+function buildHeaderCellClass(day) {
+  if (day.isWeekend) {
+    return `grid__dayCell grid__headerCell is-weekend${day.weekday === 0 ? ' is-sunday' : ''}`;
+  }
+
+  return `grid__dayCell grid__headerCell${day.weekday === 0 ? ' is-sunday' : ''}`;
 }

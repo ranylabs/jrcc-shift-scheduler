@@ -1,21 +1,55 @@
-rules_version = '2';
+﻿rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null && request.auth.token.email != null;
+    }
+
     function normalizedEmail() {
       return request.auth.token.email.lower();
     }
 
+    function isAdmin() {
+      return signedIn() && normalizedEmail() in [
+        'ranyakar@gmail.com',
+        'rcchaifa@gmail.com'
+      ];
+    }
+
+    function securityDocExists() {
+      return exists(/databases/$(database)/documents/appConfig/security);
+    }
+
+    function allowedEmails() {
+      return get(/databases/$(database)/documents/appConfig/security).data.allowedEmails;
+    }
+
     function isAllowedUser() {
-      return request.auth != null
-        && request.auth.token.email != null
-        && normalizedEmail() in [
-          'ranyakar@gmail.com',
-          'rcchaifa@gmail.com'
-        ];
+      return signedIn()
+        && securityDocExists()
+        && allowedEmails() is list
+        && normalizedEmail() in allowedEmails();
+    }
+
+    match /appConfig/security {
+      allow read: if isAllowedUser() || isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /schedules/{monthKey} {
+      allow read, write: if isAllowedUser();
+    }
+
+    match /employees/{employeeId} {
+      allow read, write: if isAllowedUser();
+    }
+
+    match /users/{uid}/settings/{settingId} {
+      allow read, write: if isAllowedUser() && request.auth.uid == uid;
     }
 
     match /{document=**} {
-      allow read, write: if isAllowedUser();
+      allow read, write: if false;
     }
   }
 }

@@ -8,9 +8,10 @@ import {
   subscribeEmployees,
   upsertEmployee
 } from './services/employeesRepository';
-import { signInWithGoogle, startAuthListener } from './services/authGate';
+import { signInWithGoogle, signOutCurrentUser, startAuthListener } from './services/authGate';
 import { isFirebaseConfigured } from './services/firebase';
 import { loadScheduleByMonth, saveScheduleByMonth } from './services/scheduleRepository';
+import { loadUserTheme, saveUserTheme } from './services/userSettingsRepository';
 import { useScheduleStore } from './state/scheduleState';
 import AuthGate from './ui/components/AuthGate';
 import CalendarGrid from './ui/components/CalendarGrid';
@@ -24,14 +25,18 @@ export default function App() {
   const [authBusy, setAuthBusy] = useState(false);
   const [authError, setAuthError] = useState(null);
   const [deniedEmail, setDeniedEmail] = useState('');
+  const [authUser, setAuthUser] = useState(null);
   const [busy, setBusy] = useState(false);
   const [compactMode, setCompactMode] = useState(true);
   const [themePanelOpen, setThemePanelOpen] = useState(false);
   const [exportMode, setExportMode] = useState(false);
   const [message, setMessage] = useState('לחיצה על תא מחליפה בין: ריק -> בוקר -> לילה -> X');
   const [employeesReady, setEmployeesReady] = useState(false);
+  const [themeReady, setThemeReady] = useState(false);
   const exportRef = useRef(null);
   const loadRequestRef = useRef(0);
+  const themeSaveTimerRef = useRef(null);
+  const themeDirtyRef = useRef(false);
   const authorized = authStatus === 'authorized';
 
   const monthMeta = useMemo(() => getMonthMeta(state.monthKey), [state.monthKey]);
@@ -42,6 +47,7 @@ export default function App() {
       setAuthStatus(nextState.status);
       setDeniedEmail(nextState.deniedEmail ?? '');
       setAuthError(nextState.error ?? null);
+      setAuthUser(nextState.user ?? null);
     });
 
     return () => {
@@ -71,6 +77,67 @@ export default function App() {
   }, [authorized, dispatch]);
 
   useEffect(() => {
+    if (!authorized || !authUser?.uid || !isFirebaseConfigured) {
+      setThemeReady(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const loadedTheme = await loadUserTheme(authUser.uid);
+        if (!cancelled && loadedTheme) {
+          dispatch({ type: 'LOAD_THEME', payload: loadedTheme });
+        }
+      } catch {
+        if (!cancelled) {
+          setMessage('טעינת עיצוב מהענן נכשלה');
+        }
+      } finally {
+        if (!cancelled) {
+          setThemeReady(true);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authorized, authUser?.uid, dispatch]);
+
+  useEffect(() => {
+    applyThemeToDocument(state.theme);
+  }, [state.theme]);
+
+  useEffect(() => {
+    if (!authorized || !authUser?.uid || !isFirebaseConfigured || !themeReady || !themeDirtyRef.current) {
+      return;
+    }
+
+    if (themeSaveTimerRef.current) {
+      clearTimeout(themeSaveTimerRef.current);
+    }
+
+    const snapshot = { ...state.theme };
+    themeSaveTimerRef.current = setTimeout(async () => {
+      try {
+        await saveUserTheme(authUser.uid, snapshot);
+      } catch {
+        setMessage('שמירת עיצוב לענן נכשלה');
+      } finally {
+        themeDirtyRef.current = false;
+      }
+    }, 500);
+
+    return () => {
+      if (themeSaveTimerRef.current) {
+        clearTimeout(themeSaveTimerRef.current);
+      }
+    };
+  }, [authorized, authUser?.uid, state.theme, themeReady]);
+
+  useEffect(() => {
     if (!authorized || !isFirebaseConfigured || !employeesReady) {
       return;
     }
@@ -88,6 +155,19 @@ export default function App() {
     } finally {
       setAuthBusy(false);
     }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await signOutCurrentUser();
+    } catch {
+      setAuthError('signout-failed');
+    }
+  };
+
+  const handleThemeChange = (updates) => {
+    themeDirtyRef.current = true;
+    dispatch({ type: 'SET_THEME', payload: updates });
   };
 
   const setMonth = (monthKey) => {
@@ -293,13 +373,21 @@ export default function App() {
         deniedEmail={deniedEmail}
         authError={authError}
         onSignIn={handleSignIn}
+        onSignOut={handleSignOut}
         busy={authBusy}
       />
     );
   }
 
   return (
-    <div className={`app ${compactMode ? 'compactMode' : ''}`} dir="rtl">
+    <div
+      className={`app ${compactMode ? 'compactMode' : ''} theme-variant-${state.theme.variant} theme-font-${fontScaleClass(
+        state.theme.fontScale
+      )} theme-header-${state.theme.headerStyle} ${
+        state.theme.zebraRows ? 'theme-zebra-on' : 'theme-zebra-off'
+      } theme-borders-${state.theme.thickBorders}`}
+      dir="rtl"
+    >
       <header className="app__header">
         <h1>sched rcc app</h1>
         <p>מערכת סידור משמרות חודשית</p>
@@ -324,7 +412,7 @@ export default function App() {
         onLoad={handleLoad}
         onExportPdf={handleExportPdf}
       />
-      <ThemePanel open={themePanelOpen} />
+      <ThemePanel open={themePanelOpen} theme={state.theme} onThemeChange={handleThemeChange} />
 
       <main className="app__main">
         <section className={`board ${exportMode ? 'exportMode' : ''}`} ref={exportRef}>
@@ -357,4 +445,23 @@ export default function App() {
       </footer>
     </div>
   );
+}
+
+function fontScaleClass(value) {
+  if (Number(value) === 1.2) {
+    return '120';
+  }
+
+  if (Number(value) === 1.1) {
+    return '110';
+  }
+
+  return '100';
+}
+
+function applyThemeToDocument(theme) {
+  const root = document.documentElement;
+  const safeTheme = theme ?? {};
+
+  root.style.setProperty('--theme-font-scale', String(Number(safeTheme.fontScale) || 1));
 }

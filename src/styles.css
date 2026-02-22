@@ -23,6 +23,7 @@ select {
   padding: 1rem;
   direction: rtl;
   text-align: right;
+  --theme-font-scale: 1;
 }
 
 .app__header {
@@ -138,6 +139,21 @@ select {
   padding: 0;
 }
 
+.themePanel__control select {
+  border: var(--grid-border-width) solid var(--grid-border-color);
+  border-radius: 8px;
+  padding: 0.35rem 0.45rem;
+  background: #ffffff;
+}
+
+.themePanel__toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--muted-text);
+  font-weight: 600;
+}
+
 .themePanel__rangeWrap {
   display: grid;
   grid-template-columns: 1fr 64px;
@@ -208,7 +224,7 @@ select {
   max-height: var(--cell-height);
   padding: var(--cell-padding-y) var(--cell-padding-x);
   border: var(--grid-border-width) solid var(--grid-border-color);
-  font-size: var(--font-cell);
+  font-size: calc(var(--font-cell) * var(--theme-font-scale));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -225,7 +241,7 @@ select {
   justify-content: center;
   flex-direction: column;
   align-items: center;
-  font-size: var(--font-employee);
+  font-size: calc(var(--font-employee) * var(--theme-font-scale));
   border-left-width: var(--divider-employee-days-width);
   white-space: normal;
   overflow-wrap: anywhere;
@@ -233,7 +249,7 @@ select {
 }
 
 .grid__headerCell {
-  font-size: var(--font-day);
+  font-size: calc(var(--font-day) * var(--theme-font-scale));
   font-weight: 700;
 }
 
@@ -259,24 +275,24 @@ select {
 }
 
 .grid__employeeName {
-  font-size: var(--font-employee);
+  font-size: calc(var(--font-employee) * var(--theme-font-scale));
   font-weight: 700;
   line-height: 1.2;
 }
 
 .grid__employeeRole {
   color: var(--muted-text);
-  font-size: calc(var(--font-employee) - 2px);
+  font-size: calc((var(--font-employee) - 2px) * var(--theme-font-scale));
 }
 
 .grid__employeeSummary {
   color: var(--muted-text);
-  font-size: calc(var(--font-employee) - 3px);
+  font-size: calc((var(--font-employee) - 3px) * var(--theme-font-scale));
 }
 
 .grid__employeeIssue {
   color: #a11f34;
-  font-size: calc(var(--font-employee) - 3px);
+  font-size: calc((var(--font-employee) - 3px) * var(--theme-font-scale));
 }
 
 .grid__fixCell {
@@ -296,7 +312,7 @@ select {
   background: transparent;
   background-color: transparent !important;
   cursor: pointer;
-  font-size: var(--font-cell);
+  font-size: calc(var(--font-cell) * var(--theme-font-scale));
   font-weight: 700;
   outline: none !important;
   box-shadow: none !important;
@@ -570,6 +586,54 @@ select {
 
 .status--ok {
   color: #0f8f6f;
+}
+
+.app.theme-variant-compact {
+  --cell-padding-x: 4px;
+  --cell-padding-y: 4px;
+}
+
+.app.theme-variant-contrast {
+  --grid-border-color: #475569;
+  --panel-bg: #f8fafc;
+}
+
+.app.theme-font-100 {
+  --theme-font-scale: 1;
+}
+
+.app.theme-font-110 {
+  --theme-font-scale: 1.1;
+}
+
+.app.theme-font-120 {
+  --theme-font-scale: 1.2;
+}
+
+.app.theme-header-dark .app__header {
+  background: linear-gradient(135deg, #0f172a, #1e293b);
+}
+
+.app.theme-header-light .app__header {
+  background: linear-gradient(135deg, #e2e8f0, #f8fafc);
+  color: #0f172a;
+}
+
+.app.theme-zebra-off .grid__row.is-row-even .grid__dayCell,
+.app.theme-zebra-off .grid__row.is-row-even .grid__employeeCell,
+.app.theme-zebra-off .grid__row.is-row-odd .grid__dayCell,
+.app.theme-zebra-off .grid__row.is-row-odd .grid__employeeCell {
+  background: var(--row-even-bg);
+}
+
+.app.theme-borders-custom {
+  --grid-border-width: 2px;
+  --divider-header-body-width: 4px;
+  --divider-employee-days-width: 4px;
+}
+
+.app.theme-borders-sundaysOnly .grid__dayCell.is-sunday {
+  border-right-width: var(--divider-header-body-width);
 }
 
 .board.exportMode .no-export {

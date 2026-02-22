@@ -1,4 +1,4 @@
-export default function AuthGate({ status, deniedEmail, authError, onSignIn, busy }) {
+export default function AuthGate({ status, deniedEmail, authError, onSignIn, onSignOut, busy }) {
   if (status === 'checking') {
     return (
       <div style={containerStyle} dir="rtl">
@@ -11,10 +11,7 @@ export default function AuthGate({ status, deniedEmail, authError, onSignIn, bus
     return null;
   }
 
-  const deniedMessage =
-    status === 'denied'
-      ? `אין הרשאה למערכת${deniedEmail ? ` (${deniedEmail})` : ''}`
-      : null;
+  const deniedMessage = status === 'denied' ? 'אין הרשאה. פנה למנהל להוספת אימייל במערכת.' : null;
 
   return (
     <div style={containerStyle} dir="rtl">
@@ -24,10 +21,17 @@ export default function AuthGate({ status, deniedEmail, authError, onSignIn, bus
           הגישה מותרת רק למיילים מורשים.
         </p>
         {deniedMessage ? <p style={errorStyle}>{deniedMessage}</p> : null}
+        {status === 'denied' && deniedEmail ? <p style={mutedStyle}>{deniedEmail}</p> : null}
         {authError && status !== 'denied' ? <p style={errorStyle}>התחברות נכשלה. נסה שוב.</p> : null}
-        <button type="button" onClick={onSignIn} disabled={busy} style={buttonStyle}>
-          התחבר עם Google
-        </button>
+        {status === 'denied' ? (
+          <button type="button" onClick={onSignOut} disabled={busy} style={buttonStyle}>
+            התנתק
+          </button>
+        ) : (
+          <button type="button" onClick={onSignIn} disabled={busy} style={buttonStyle}>
+            התחבר עם Google
+          </button>
+        )}
       </div>
     </div>
   );
@@ -68,4 +72,10 @@ const errorStyle = {
   marginBottom: '0.75rem',
   color: '#ac2542',
   fontWeight: 700
+};
+
+const mutedStyle = {
+  marginTop: 0,
+  marginBottom: '0.75rem',
+  color: 'var(--muted-text)'
 };

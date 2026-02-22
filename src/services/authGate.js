@@ -1,56 +1,85 @@
-import { onAuthStateChanged, signInWithPopup, signOut } from "firebase/auth";
-import { auth, googleProvider, ALLOWED_USERS } from "./firebase";
+import { onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth';
+import { ALLOWED_USERS, auth, googleProvider } from './firebase';
+import { ensureSecurityConfigDefaults, loadSecurityConfig } from './securityRepository';
 
 function normalizeEmail(user) {
-  return user?.email?.trim().toLowerCase() ?? "";
-}
-
-export function isAllowedUser(user) {
-  const email = normalizeEmail(user);
-  return ALLOWED_USERS.includes(email);
+  return user?.email?.trim().toLowerCase() ?? '';
 }
 
 export function startAuthListener(onStateChange) {
   if (!auth) {
-    onStateChange({ status: "disabled", user: null, error: "auth-not-configured" });
+    onStateChange({ status: 'disabled', user: null, error: 'auth-not-configured' });
     return () => {};
   }
 
-  let suppressSignedOutOnce = false;
+  let signedOutByGuard = false;
 
   return onAuthStateChanged(auth, async (user) => {
     if (!user) {
-      if (suppressSignedOutOnce) {
-        suppressSignedOutOnce = false;
+      if (signedOutByGuard) {
+        signedOutByGuard = false;
         return;
       }
-      onStateChange({ status: "signed_out", user: null, error: null });
+      onStateChange({ status: 'signed_out', user: null, error: null });
       return;
     }
 
-    if (!isAllowedUser(user)) {
-      suppressSignedOutOnce = true;
+    const email = normalizeEmail(user);
+
+    try {
+      let security = await loadSecurityConfig();
+      let allowedEmails = security?.allowedEmails ?? [];
+
+      if (allowedEmails.length === 0 && ALLOWED_USERS.includes(email)) {
+        await ensureSecurityConfigDefaults(ALLOWED_USERS);
+        security = await loadSecurityConfig();
+        allowedEmails = security?.allowedEmails ?? [];
+      }
+
+      if (!allowedEmails.includes(email)) {
+        signedOutByGuard = true;
+        try {
+          await signOut(auth);
+        } finally {
+          onStateChange({
+            status: 'denied',
+            user: null,
+            deniedEmail: email,
+            error: 'unauthorized'
+          });
+        }
+        return;
+      }
+
+      onStateChange({ status: 'authorized', user, error: null });
+    } catch {
+      signedOutByGuard = true;
       try {
         await signOut(auth);
       } finally {
         onStateChange({
-          status: "denied",
+          status: 'denied',
           user: null,
-          deniedEmail: normalizeEmail(user),
-          error: "unauthorized"
+          deniedEmail: email,
+          error: 'security-config-unavailable'
         });
       }
-      return;
     }
-
-    onStateChange({ status: "authorized", user, error: null });
   });
 }
 
 export async function signInWithGoogle() {
   if (!auth) {
-    throw new Error("auth-not-configured");
+    throw new Error('auth-not-configured');
   }
 
   return signInWithPopup(auth, googleProvider);
+}
+
+export async function signOutCurrentUser() {
+  if (!auth) {
+    return;
+  }
+
+  await signOut(auth);
 }
