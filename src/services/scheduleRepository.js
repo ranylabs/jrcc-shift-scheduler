@@ -68,37 +68,44 @@ export function subscribeScheduleByMonth(monthKey, onUpdate, onError) {
     return () => {};
   }
 
-  assertFirebase();
+  try {
+    assertFirebase();
 
-  const ref = doc(db, COLLECTION, monthKey);
-  const unsubscribe = onSnapshot(
-    ref,
-    (snapshot) => {
-      if (!snapshot.exists()) {
-        onUpdate(null);
-        return;
-      }
+    const ref = doc(db, COLLECTION, monthKey);
+    const unsubscribe = onSnapshot(
+      ref,
+      (snapshot) => {
+        if (!snapshot.exists()) {
+          onUpdate(null);
+          return;
+        }
 
-      const data = snapshot.data();
-      onUpdate({
-        monthKey,
-        schedule: data.schedule ?? {},
-        scheduleMeta: data.scheduleMeta ?? {}
-      });
-    },
-    (error) => {
-      if (handleCloudDisableError(error)) {
-        onUpdate(null);
-        return;
-      }
+        const data = snapshot.data();
+        onUpdate({
+          monthKey,
+          schedule: data.schedule ?? {},
+          scheduleMeta: data.scheduleMeta ?? {}
+        });
+      },
+      (error) => {
+        if (handleCloudDisableError(error)) {
+          onUpdate(null);
+          return;
+        }
 
-      if (onError) {
-        onError(error);
+        if (onError) {
+          onError(error);
+        }
       }
+    );
+
+    return trackCloudListener(unsubscribe);
+  } catch (error) {
+    if (onError) {
+      onError(error);
     }
-  );
-
-  return trackCloudListener(unsubscribe);
+    return () => {};
+  }
 }
 
 function assertFirebase() {

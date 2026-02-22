@@ -9,7 +9,7 @@ import {
   upsertEmployee
 } from './services/employeesRepository';
 import { signInWithGoogle, startAuthListener } from './services/authGate';
-import { isCloudDisabled } from './services/cloudMode';
+import { disableCloud, enableCloud, isCloudDisabled } from './services/cloudMode';
 import { isFirebaseConfigured } from './services/firebase';
 import { loadScheduleByMonth, saveScheduleByMonth, subscribeScheduleByMonth } from './services/scheduleRepository';
 import { loadUserTheme } from './services/userSettingsRepository';
@@ -35,13 +35,32 @@ export default function App() {
   const [message, setMessage] = useState('לחיצה על תא מחליפה בין: ריק -> בוקר -> לילה -> X');
   const [employeesReady, setEmployeesReady] = useState(false);
   const [userTheme, setUserTheme] = useState(null);
+  const [cloudEnabled, setCloudEnabled] = useState(() => !isCloudDisabled());
   const exportRef = useRef(null);
   const startupLoadedUidRef = useRef('');
+  const cloudUnsubRef = useRef(null);
+  const authorizedRef = useRef(false);
+  const employeesReadyRef = useRef(false);
   const authorized = authStatus === 'authorized';
-  const cloudDisabled = isCloudDisabled();
+  const cloudDisabled = !cloudEnabled || isCloudDisabled();
 
   const monthMeta = useMemo(() => getMonthMeta(state.monthKey), [state.monthKey]);
   const validation = useMemo(() => validateSchedule(state), [state]);
+
+  useEffect(() => {
+    authorizedRef.current = authorized;
+  }, [authorized]);
+
+  useEffect(() => {
+    employeesReadyRef.current = employeesReady;
+  }, [employeesReady]);
+
+  const clearCloudSubscription = () => {
+    if (cloudUnsubRef.current) {
+      cloudUnsubRef.current();
+      cloudUnsubRef.current = null;
+    }
+  };
 
   useEffect(() => {
     const unsubscribe = startAuthListener((nextState) => {
@@ -113,14 +132,23 @@ export default function App() {
   }, [authorized, authUser?.uid, dispatch]);
 
   useEffect(() => {
-    if (!authorized || !isFirebaseConfigured || !employeesReady) {
-      return () => {};
-    }
+    clearCloudSubscription();
 
-    if (isCloudDisabled()) {
+    if (
+      !cloudEnabled ||
+      !state.monthKey ||
+      !isFirebaseConfigured ||
+      !authorizedRef.current ||
+      !employeesReadyRef.current ||
+      isCloudDisabled()
+    ) {
       setBusy(false);
-      setMessage('Cloud sync paused (quota reached)  working locally');
-      return () => {};
+      if (!cloudEnabled || isCloudDisabled()) {
+        setMessage('Cloud sync paused (quota reached)  working locally');
+      }
+      return () => {
+        clearCloudSubscription();
+      };
     }
 
     setBusy(true);
@@ -130,11 +158,13 @@ export default function App() {
       state.monthKey,
       (loaded) => {
         if (isCloudDisabled()) {
+          setCloudEnabled(false);
           if (firstSnapshot) {
             setMessage('Cloud sync paused (quota reached)  working locally');
             setBusy(false);
             firstSnapshot = false;
           }
+          clearCloudSubscription();
           return;
         }
 
@@ -159,6 +189,15 @@ export default function App() {
         }
       },
       () => {
+        if (isCloudDisabled()) {
+          setCloudEnabled(false);
+          setMessage('Cloud sync paused (quota reached)  working locally');
+          setBusy(false);
+          clearCloudSubscription();
+          firstSnapshot = false;
+          return;
+        }
+
         if (firstSnapshot) {
           setMessage('טעינה אוטומטית מהענן נכשלה');
           setBusy(false);
@@ -167,10 +206,12 @@ export default function App() {
       }
     );
 
+    cloudUnsubRef.current = unsubscribe;
+
     return () => {
-      unsubscribe();
+      clearCloudSubscription();
     };
-  }, [authorized, state.monthKey, employeesReady, dispatch]);
+  }, [cloudEnabled, state.monthKey]);
 
   const handleSignIn = async () => {
     setAuthBusy(true);
@@ -203,6 +244,7 @@ export default function App() {
     }
 
     if (isCloudDisabled()) {
+      setCloudEnabled(false);
       setMessage('Cloud sync paused (quota reached)  working locally');
       return;
     }
@@ -217,6 +259,7 @@ export default function App() {
       });
 
       if (isCloudDisabled()) {
+        setCloudEnabled(false);
         setMessage('Cloud sync paused (quota reached)  working locally');
         return;
       }
@@ -241,6 +284,7 @@ export default function App() {
     }
 
     if (isCloudDisabled()) {
+      setCloudEnabled(false);
       setMessage('Cloud sync paused (quota reached)  working locally');
       return;
     }
@@ -371,6 +415,7 @@ export default function App() {
       const loaded = await loadScheduleByMonth(monthKey);
 
       if (isCloudDisabled()) {
+        setCloudEnabled(false);
         setMessage('Cloud sync paused (quota reached)  working locally');
         return;
       }
@@ -434,8 +479,31 @@ export default function App() {
       {cloudDisabled ? (
         <div className="cloudBanner no-print" dir="rtl">
           <span>Cloud sync paused (quota reached)  working locally</span>
+          <button
+            type="button"
+            onClick={() => {
+              enableCloud();
+              setCloudEnabled(true);
+            }}
+          >
+            Enable Cloud
+          </button>
         </div>
-      ) : null}
+      ) : (
+        <div className="cloudBanner no-print" dir="rtl">
+          <button
+            type="button"
+            onClick={() => {
+              disableCloud('manual');
+              setCloudEnabled(false);
+              clearCloudSubscription();
+              setMessage('Cloud sync paused (quota reached)  working locally');
+            }}
+          >
+            Disable Cloud
+          </button>
+        </div>
+      )}
       <ThemePanel open={themePanelOpen} />
 
       <main className="app__main">

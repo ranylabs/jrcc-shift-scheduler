@@ -1,5 +1,6 @@
 import { onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth';
 import { ALLOWED_USERS, auth, googleProvider } from './firebase';
+import { isCloudDisabled } from './cloudMode';
 import { ensureSecurityConfigDefaults, loadSecurityConfig } from './securityRepository';
 
 function normalizeEmail(user) {
@@ -25,6 +26,26 @@ export function startAuthListener(onStateChange) {
     }
 
     const email = normalizeEmail(user);
+
+    if (isCloudDisabled()) {
+      if (ALLOWED_USERS.includes(email)) {
+        onStateChange({ status: 'authorized', user, error: null });
+        return;
+      }
+
+      signedOutByGuard = true;
+      try {
+        await signOut(auth);
+      } finally {
+        onStateChange({
+          status: 'denied',
+          user: null,
+          deniedEmail: email,
+          error: 'unauthorized'
+        });
+      }
+      return;
+    }
 
     try {
       let security = await loadSecurityConfig();
