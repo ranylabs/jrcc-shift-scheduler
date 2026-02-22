@@ -1,0 +1,45 @@
+﻿:root {
+  --bg: #ffffff;
+  --panel-bg: #ffffff;
+  --text: #0f172a;
+  --muted-text: #475569;
+
+  --weekend-bg: #fff2cc;
+
+  --row-even-bg: #ffffff;
+  --row-odd-bg: #f6f8fb;
+
+  --grid-border-color: #cbd5e1;
+  --grid-border-width: 1px;
+
+  --divider-header-body-width: 3px;
+  --divider-employee-days-width: 3px;
+
+  --cell-padding-x: 6px;
+  --cell-padding-y: 6px;
+
+  --font-employee: 14px;
+  --font-day: 12px;
+  --font-cell: 12px;
+
+  --cell-height: 34px;
+  --cell-height-print: 26px;
+  --radius: 10px;
+  --shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+
+  --font-base: 'Segoe UI', Tahoma, sans-serif;
+  --employee-col-width: 180px;
+
+  --shift-morning-bg: #d9f6eb;
+  --shift-night-bg: #e1eaff;
+  --shift-x-bg: #ffe6ea;
+
+  --shift-letter-size: 16px;
+  --shift-letter-weight: 600;
+  --shift-letter-color: #0f172a;
+  --shift-letter-align: center;
+
+  --shift-morning-text: #0f172a;
+  --shift-night-text: #0f172a;
+  --shift-x-text: #0f172a;
+}
