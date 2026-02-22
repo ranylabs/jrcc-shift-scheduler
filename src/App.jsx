@@ -8,10 +8,11 @@ import {
   subscribeEmployees,
   upsertEmployee
 } from './services/employeesRepository';
-import { startAuthListener } from './services/authGate';
+import { signInWithGoogle, startAuthListener } from './services/authGate';
 import { isFirebaseConfigured } from './services/firebase';
 import { loadScheduleByMonth, saveScheduleByMonth } from './services/scheduleRepository';
 import { useScheduleStore } from './state/scheduleState';
+import AuthGate from './ui/components/AuthGate';
 import CalendarGrid from './ui/components/CalendarGrid';
 import EmployeePanel from './ui/components/EmployeePanel';
 import ThemePanel from './ui/components/ThemePanel';
@@ -19,30 +20,41 @@ import Toolbar from './ui/components/Toolbar';
 
 export default function App() {
   const { state, dispatch, undo, redo, canUndo, canRedo } = useScheduleStore();
-  const [authorized, setAuthorized] = useState(false);
+  const [authStatus, setAuthStatus] = useState('checking');
+  const [authBusy, setAuthBusy] = useState(false);
+  const [authError, setAuthError] = useState(null);
+  const [deniedEmail, setDeniedEmail] = useState('');
   const [busy, setBusy] = useState(false);
   const [compactMode, setCompactMode] = useState(true);
   const [themePanelOpen, setThemePanelOpen] = useState(false);
   const [exportMode, setExportMode] = useState(false);
   const [message, setMessage] = useState('לחיצה על תא מחליפה בין: ריק -> בוקר -> לילה -> X');
-  const [employeesReady, setEmployeesReady] = useState(!isFirebaseConfigured);
+  const [employeesReady, setEmployeesReady] = useState(false);
   const exportRef = useRef(null);
   const loadRequestRef = useRef(0);
+  const authorized = authStatus === 'authorized';
 
   const monthMeta = useMemo(() => getMonthMeta(state.monthKey), [state.monthKey]);
   const validation = useMemo(() => validateSchedule(state), [state]);
 
   useEffect(() => {
-    startAuthListener(
-      () => setAuthorized(true),
-      () => {
-        alert('אין הרשאה למערכת');
-        setAuthorized(false);
-      }
-    );
+    const unsubscribe = startAuthListener((nextState) => {
+      setAuthStatus(nextState.status);
+      setDeniedEmail(nextState.deniedEmail ?? '');
+      setAuthError(nextState.error ?? null);
+    });
+
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
+    if (!authorized) {
+      setEmployeesReady(false);
+      return () => {};
+    }
+
     if (!isFirebaseConfigured) {
       setEmployeesReady(true);
       return () => {};
@@ -56,15 +68,27 @@ export default function App() {
     return () => {
       unsubscribe();
     };
-  }, []);
+  }, [authorized, dispatch]);
 
   useEffect(() => {
-    if (!isFirebaseConfigured || !employeesReady) {
+    if (!authorized || !isFirebaseConfigured || !employeesReady) {
       return;
     }
 
     loadScheduleForMonth(state.monthKey, true);
-  }, [state.monthKey, employeesReady]);
+  }, [authorized, state.monthKey, employeesReady]);
+
+  const handleSignIn = async () => {
+    setAuthBusy(true);
+    setAuthError(null);
+    try {
+      await signInWithGoogle();
+    } catch {
+      setAuthError('signin-failed');
+    } finally {
+      setAuthBusy(false);
+    }
+  };
 
   const setMonth = (monthKey) => {
     if (!monthKey) {
@@ -74,6 +98,11 @@ export default function App() {
   };
 
   const handleSave = async () => {
+    if (!authorized) {
+      setMessage('אין הרשאה למערכת');
+      return;
+    }
+
     if (!isFirebaseConfigured) {
       setMessage('הענן לא מוגדר. יש למלא משתני פיירבייס.');
       return;
@@ -96,6 +125,11 @@ export default function App() {
   };
 
   const handleLoad = async () => {
+    if (!authorized) {
+      setMessage('אין הרשאה למערכת');
+      return;
+    }
+
     if (!isFirebaseConfigured) {
       setMessage('הענן לא מוגדר. יש למלא משתני פיירבייס.');
       return;
@@ -105,6 +139,11 @@ export default function App() {
   };
 
   const handleAddEmployee = async (payload) => {
+    if (!authorized) {
+      setMessage('אין הרשאה למערכת');
+      return;
+    }
+
     const id =
       typeof crypto !== 'undefined' && crypto.randomUUID
         ? crypto.randomUUID()
@@ -125,6 +164,11 @@ export default function App() {
   };
 
   const handleUpdateEmployee = async (id, updates) => {
+    if (!authorized) {
+      setMessage('אין הרשאה למערכת');
+      return;
+    }
+
     dispatch({ type: 'UPDATE_EMPLOYEE', payload: { id, updates } });
 
     if (!isFirebaseConfigured) {
@@ -144,6 +188,11 @@ export default function App() {
   };
 
   const handleDeleteEmployee = async (id) => {
+    if (!authorized) {
+      setMessage('אין הרשאה למערכת');
+      return;
+    }
+
     dispatch({ type: 'DELETE_EMPLOYEE', payload: id });
 
     if (!isFirebaseConfigured) {
@@ -239,9 +288,13 @@ export default function App() {
 
   if (!authorized) {
     return (
-      <div style={{ padding: 40, textAlign: 'center' }} dir="rtl">
-        בודק הרשאות...
-      </div>
+      <AuthGate
+        status={authStatus}
+        deniedEmail={deniedEmail}
+        authError={authError}
+        onSignIn={handleSignIn}
+        busy={authBusy}
+      />
     );
   }
 

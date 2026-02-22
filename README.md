@@ -6,12 +6,8 @@ Monthly shift scheduling web app built with React + Vite + Firebase Firestore.
 
 - React (Vite)
 - Firebase Firestore (modular SDK)
+- Firebase Auth (Google)
 - Local undo/redo state engine
-- Clean architecture separation:
-  - `src/engine`: scheduling and validation logic
-  - `src/services`: Firestore access
-  - `src/state`: app state and history reducer
-  - `src/ui/components`: modular UI
 
 ## Setup
 
@@ -21,24 +17,19 @@ Monthly shift scheduling web app built with React + Vite + Firebase Firestore.
 3. Run:
    - `npm run dev`
 
-## Core features in this initial implementation
+## Auth Access
 
-- Monthly grid with day numbers + Hebrew weekday row (`� � � � � � �`)
-- Employee CRUD with constraints and role (Operator/Responsible)
-- Cell cycle: `Empty -> Morning -> Night -> X -> Empty`
-- Weekend highlighting (Friday/Saturday)
-- Alternating employee rows
-- Validation engine with per-day `FIX` indicators
-- Auto-fill generator with fairness + constraints
-- Undo/Redo history
-- Firestore save/load per month key (`YYYY-MM`)
-- PDF export (single page, landscape A4)
+Access is allowed only for:
 
-## Notes
+- `ranyakar@gmail.com`
+- `rcchaifa@gmail.com`
 
-- Firestore functions will throw a clear error until `VITE_FIREBASE_*` env vars are configured.
-- Manager override is supported by direct manual cell editing.
+Users must sign in with Google. Unauthorized users are signed out and blocked.
+
 ## Deploy
 
-- הפריסה מתבצעת אוטומטית ל-GitHub Pages דרך GitHub Actions בכל `push` ל-`main`.
-- אין צורך בהעתקה ידנית ל-`docs`.
+Deploy is automatic via GitHub Actions on every push to `main`.
+
+- Build output: `dist`
+- No manual copy to `docs`
+- Command flow: `git push`
