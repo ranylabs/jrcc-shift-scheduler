@@ -1,5 +1,5 @@
 ﻿import { doc, getDoc, onSnapshot, serverTimestamp, setDoc } from 'firebase/firestore';
-import { disableCloud, isCloudDisabled } from './cloudMode';
+import { disableCloud, isCloudDisabled, trackCloudListener } from './cloudMode';
 import { db, isFirebaseConfigured } from './firebase';
 
 const COLLECTION = 'schedules';
@@ -71,7 +71,7 @@ export function subscribeScheduleByMonth(monthKey, onUpdate, onError) {
   assertFirebase();
 
   const ref = doc(db, COLLECTION, monthKey);
-  return onSnapshot(
+  const unsubscribe = onSnapshot(
     ref,
     (snapshot) => {
       if (!snapshot.exists()) {
@@ -97,6 +97,8 @@ export function subscribeScheduleByMonth(monthKey, onUpdate, onError) {
       }
     }
   );
+
+  return trackCloudListener(unsubscribe);
 }
 
 function assertFirebase() {
@@ -109,12 +111,21 @@ function handleCloudDisableError(error) {
   const code = String(error?.code ?? '').toLowerCase();
   const message = String(error?.message ?? '').toLowerCase();
 
-  if (code.includes('resource-exhausted') || message.includes('resource_exhausted') || message.includes('resource-exhausted')) {
-    disableCloud('quota exceeded');
+  if (
+    code.includes('resource-exhausted') ||
+    message.includes('resource_exhausted') ||
+    message.includes('resource-exhausted') ||
+    message.includes('quota exceeded')
+  ) {
+    disableCloud('quota reached');
     return true;
   }
 
-  if (code.includes('permission-denied') || message.includes('permission-denied') || message.includes('permission denied')) {
+  if (
+    code.includes('permission-denied') ||
+    message.includes('permission-denied') ||
+    message.includes('permission denied')
+  ) {
     disableCloud('permission denied');
     return true;
   }

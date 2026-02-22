@@ -1,10 +1,11 @@
 ﻿import { collection, deleteDoc, doc, getDocs, orderBy, query, setDoc } from 'firebase/firestore';
+import { isCloudDisabled } from './cloudMode';
 import { db, isFirebaseConfigured } from './firebase';
 
 const COLLECTION = 'employees';
 
 export async function loadEmployeesOnce() {
-  if (!isFirebaseConfigured || !db) {
+  if (isCloudDisabled() || !isFirebaseConfigured || !db) {
     return [];
   }
 
@@ -17,6 +18,10 @@ export async function loadEmployeesOnce() {
 }
 
 export async function upsertEmployee(employee) {
+  if (isCloudDisabled()) {
+    return;
+  }
+
   if (!isFirebaseConfigured || !db) {
     throw new Error('הענן לא מוגדר.');
   }
@@ -25,6 +30,10 @@ export async function upsertEmployee(employee) {
 }
 
 export async function deleteEmployeeById(employeeId) {
+  if (isCloudDisabled()) {
+    return;
+  }
+
   if (!isFirebaseConfigured || !db) {
     throw new Error('הענן לא מוגדר.');
   }

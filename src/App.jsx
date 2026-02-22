@@ -9,7 +9,7 @@ import {
   upsertEmployee
 } from './services/employeesRepository';
 import { signInWithGoogle, startAuthListener } from './services/authGate';
-import { enableCloud, getCloudDisableReason, isCloudDisabled } from './services/cloudMode';
+import { isCloudDisabled } from './services/cloudMode';
 import { isFirebaseConfigured } from './services/firebase';
 import { loadScheduleByMonth, saveScheduleByMonth, subscribeScheduleByMonth } from './services/scheduleRepository';
 import { loadUserTheme } from './services/userSettingsRepository';
@@ -35,12 +35,10 @@ export default function App() {
   const [message, setMessage] = useState('לחיצה על תא מחליפה בין: ריק -> בוקר -> לילה -> X');
   const [employeesReady, setEmployeesReady] = useState(false);
   const [userTheme, setUserTheme] = useState(null);
-  const [cloudBannerVersion, setCloudBannerVersion] = useState(0);
   const exportRef = useRef(null);
   const startupLoadedUidRef = useRef('');
   const authorized = authStatus === 'authorized';
   const cloudDisabled = isCloudDisabled();
-  const cloudDisableReason = getCloudDisableReason();
 
   const monthMeta = useMemo(() => getMonthMeta(state.monthKey), [state.monthKey]);
   const validation = useMemo(() => validateSchedule(state), [state]);
@@ -68,6 +66,12 @@ export default function App() {
 
     if (!isFirebaseConfigured) {
       setEmployeesReady(true);
+      return () => {};
+    }
+
+    if (isCloudDisabled()) {
+      setEmployeesReady(true);
+      setMessage('Cloud sync paused (quota reached)  working locally');
       return () => {};
     }
 
@@ -115,7 +119,7 @@ export default function App() {
 
     if (isCloudDisabled()) {
       setBusy(false);
-      setMessage('הענן כבוי במצב לא מקוון');
+      setMessage('Cloud sync paused (quota reached)  working locally');
       return () => {};
     }
 
@@ -125,6 +129,15 @@ export default function App() {
     const unsubscribe = subscribeScheduleByMonth(
       state.monthKey,
       (loaded) => {
+        if (isCloudDisabled()) {
+          if (firstSnapshot) {
+            setMessage('Cloud sync paused (quota reached)  working locally');
+            setBusy(false);
+            firstSnapshot = false;
+          }
+          return;
+        }
+
         if (loaded) {
           dispatch({
             type: 'LOAD_MONTH',
@@ -157,7 +170,7 @@ export default function App() {
     return () => {
       unsubscribe();
     };
-  }, [authorized, state.monthKey, employeesReady, dispatch, cloudBannerVersion]);
+  }, [authorized, state.monthKey, employeesReady, dispatch]);
 
   const handleSignIn = async () => {
     setAuthBusy(true);
@@ -190,7 +203,7 @@ export default function App() {
     }
 
     if (isCloudDisabled()) {
-      setMessage('הענן כבוי במצב לא מקוון');
+      setMessage('Cloud sync paused (quota reached)  working locally');
       return;
     }
 
@@ -202,6 +215,12 @@ export default function App() {
         schedule: state.schedule,
         scheduleMeta: state.scheduleMeta
       });
+
+      if (isCloudDisabled()) {
+        setMessage('Cloud sync paused (quota reached)  working locally');
+        return;
+      }
+
       setMessage(`נשמר חודש ${state.monthKey}`);
     } catch {
       setMessage('שמירה לענן נכשלה');
@@ -222,7 +241,7 @@ export default function App() {
     }
 
     if (isCloudDisabled()) {
-      setMessage('הענן כבוי במצב לא מקוון');
+      setMessage('Cloud sync paused (quota reached)  working locally');
       return;
     }
 
@@ -351,6 +370,11 @@ export default function App() {
     try {
       const loaded = await loadScheduleByMonth(monthKey);
 
+      if (isCloudDisabled()) {
+        setMessage('Cloud sync paused (quota reached)  working locally');
+        return;
+      }
+
       if (!loaded) {
         setMessage(
           isAutoLoad ? `לא נמצאו נתונים לחודש ${monthKey}` : `אין נתונים שמורים לחודש ${monthKey}`
@@ -409,19 +433,7 @@ export default function App() {
       />
       {cloudDisabled ? (
         <div className="cloudBanner no-print" dir="rtl">
-          <span>
-            מצב ענן כבוי ({cloudDisableReason || 'לא ידוע'}). האפליקציה עובדת במצב לא מקוון.
-          </span>
-          <button
-            type="button"
-            onClick={() => {
-              enableCloud();
-              setCloudBannerVersion((current) => current + 1);
-              window.location.reload();
-            }}
-          >
-            נסה להפעיל ענן שוב
-          </button>
+          <span>Cloud sync paused (quota reached)  working locally</span>
         </div>
       ) : null}
       <ThemePanel open={themePanelOpen} />
@@ -458,3 +470,4 @@ export default function App() {
     </div>
   );
 }
+

@@ -1,33 +1,63 @@
-﻿const STORAGE_KEY = 'JRCC_CLOUD_DISABLED';
+﻿let cloudAvailable = true;
+let cloudDisableReason = '';
+const activeListeners = new Set();
 
 export function isCloudDisabled() {
-  try {
-    return Boolean(localStorage.getItem(STORAGE_KEY));
-  } catch {
-    return false;
-  }
+  return !cloudAvailable;
 }
 
 export function disableCloud(reason) {
-  try {
-    localStorage.setItem(STORAGE_KEY, reason || 'disabled');
-  } catch {
-    // ignore storage errors
+  if (!cloudAvailable) {
+    if (reason) {
+      cloudDisableReason = reason;
+    }
+    return;
   }
+
+  cloudAvailable = false;
+  cloudDisableReason = reason || 'cloud unavailable';
+
+  for (const unsubscribe of Array.from(activeListeners)) {
+    try {
+      unsubscribe();
+    } catch {
+      // ignore
+    }
+  }
+  activeListeners.clear();
 }
 
 export function enableCloud() {
-  try {
-    localStorage.removeItem(STORAGE_KEY);
-  } catch {
-    // ignore storage errors
-  }
+  cloudAvailable = true;
+  cloudDisableReason = '';
 }
 
 export function getCloudDisableReason() {
-  try {
-    return localStorage.getItem(STORAGE_KEY) || '';
-  } catch {
-    return '';
+  return cloudDisableReason;
+}
+
+export function trackCloudListener(unsubscribe) {
+  if (typeof unsubscribe !== 'function') {
+    return () => {};
   }
+
+  if (!cloudAvailable) {
+    try {
+      unsubscribe();
+    } catch {
+      // ignore
+    }
+    return () => {};
+  }
+
+  activeListeners.add(unsubscribe);
+
+  return () => {
+    activeListeners.delete(unsubscribe);
+    try {
+      unsubscribe();
+    } catch {
+      // ignore
+    }
+  };
 }

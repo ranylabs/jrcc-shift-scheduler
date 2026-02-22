@@ -1,7 +1,12 @@
 ﻿import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { isCloudDisabled } from './cloudMode';
 import { db, isFirebaseConfigured } from './firebase';
 
 export async function loadUserTheme(uid) {
+  if (isCloudDisabled()) {
+    return null;
+  }
+
   assertFirebase();
 
   const snapshot = await getDoc(doc(db, 'users', uid, 'settings', 'ui'));
@@ -14,6 +19,10 @@ export async function loadUserTheme(uid) {
 }
 
 export async function saveUserTheme(uid, theme) {
+  if (isCloudDisabled()) {
+    return;
+  }
+
   assertFirebase();
 
   await setDoc(

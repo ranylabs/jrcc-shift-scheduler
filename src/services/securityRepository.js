@@ -1,7 +1,12 @@
 ﻿import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { isCloudDisabled } from './cloudMode';
 import { db, isFirebaseConfigured } from './firebase';
 
 export async function loadSecurityConfig() {
+  if (isCloudDisabled()) {
+    return null;
+  }
+
   assertFirebase();
 
   const snapshot = await getDoc(getSecurityDocRef());
@@ -16,6 +21,10 @@ export async function loadSecurityConfig() {
 }
 
 export async function ensureSecurityConfigDefaults(defaultEmails) {
+  if (isCloudDisabled()) {
+    return;
+  }
+
   assertFirebase();
 
   const emails = normalizeEmails(defaultEmails);
