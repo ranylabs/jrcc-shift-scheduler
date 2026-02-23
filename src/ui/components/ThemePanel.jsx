@@ -1,4 +1,5 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useRef, useState } from 'react';
+import { loadGlobalTheme, saveGlobalTheme } from '../../services/globalThemeRepository';
 
 const STORAGE_KEY = 'sched-rcc-theme-v1';
 
@@ -61,8 +62,9 @@ const CONTROL_FIELDS = [
   { key: '--weekday-header-gradient-end', label: 'גרדיאנט ימי שבוע - צבע סיום', type: 'color' }
 ];
 
-export default function ThemePanel({ open }) {
+export default function ThemePanel({ open, authReady }) {
   const [theme, setTheme] = useState(DEFAULT_THEME);
+  const cloudLoadedRef = useRef(false);
 
   useEffect(() => {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -80,6 +82,30 @@ export default function ThemePanel({ open }) {
       applyTheme(DEFAULT_THEME);
     }
   }, []);
+  useEffect(() => {
+    if (!authReady || cloudLoadedRef.current) {
+      return;
+    }
+
+    cloudLoadedRef.current = true;
+    let cancelled = false;
+
+    (async () => {
+      const remoteTheme = await loadGlobalTheme();
+      if (cancelled || !remoteTheme) {
+        return;
+      }
+
+      const merged = { ...DEFAULT_THEME, ...remoteTheme };
+      setTheme(merged);
+      applyTheme(merged);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authReady]);
 
   const fields = useMemo(() => CONTROL_FIELDS, []);
 
@@ -88,12 +114,14 @@ export default function ThemePanel({ open }) {
     setTheme(next);
     applyTheme(next);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    saveGlobalTheme(next);
   };
 
   const handleReset = () => {
     setTheme(DEFAULT_THEME);
     applyTheme(DEFAULT_THEME);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_THEME));
+    saveGlobalTheme(DEFAULT_THEME);
   };
 
   if (!open) {
@@ -169,3 +197,7 @@ function applyTheme(theme) {
     String(theme['--weekday-header-gradient-enabled']) === '1'
   );
 }
+
+
+
+

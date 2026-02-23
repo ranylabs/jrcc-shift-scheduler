@@ -504,7 +504,7 @@ export default function App() {
           </button>
         </div>
       )}
-      <ThemePanel open={themePanelOpen} />
+      <ThemePanel open={themePanelOpen} authReady={authorized} />
 
       <main className="app__main">
         <section className={`board ${exportMode ? 'exportMode' : ''}`} ref={exportRef}>
@@ -538,4 +538,6 @@ export default function App() {
     </div>
   );
 }
+
+
 
