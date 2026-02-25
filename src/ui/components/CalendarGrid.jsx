@@ -75,7 +75,11 @@ function renderHeaderRows(monthDays, keyPrefix) {
         {monthDays.map((day) => (
           <div
             key={`${keyPrefix}-day-${day.dayNumber}`}
-            className={day.isWeekend ? 'grid__dayCell grid__headerCell is-weekend' : 'grid__dayCell grid__headerCell'}
+            className={
+              day.isWeekend
+                ? 'grid__dayCell grid__headerCell grid__dayNumberCell is-weekend'
+                : 'grid__dayCell grid__headerCell grid__dayNumberCell'
+            }
           >
             {day.dayNumber}
           </div>

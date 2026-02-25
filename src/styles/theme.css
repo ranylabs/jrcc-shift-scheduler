@@ -21,6 +21,8 @@
   --font-employee: 14px;
   --font-day: 12px;
   --font-cell: 12px;
+  --weekday-font-size: 12px;
+  --daynum-font-size: 12px;
 
   --cell-height: 34px;
   --cell-height-print: 26px;

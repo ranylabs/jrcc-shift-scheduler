@@ -275,6 +275,14 @@ select {
   font-weight: 700;
 }
 
+.grid__dayNumberCell {
+  font-size: calc(var(--daynum-font-size) * var(--theme-font-scale));
+}
+
+.grid__weekdayLabelCell {
+  font-size: calc(var(--weekday-font-size) * var(--theme-font-scale));
+}
+
 .grid__headerBottom {
   border-bottom-width: var(--divider-header-body-width);
 }

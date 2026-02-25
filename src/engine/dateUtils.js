@@ -13,7 +13,7 @@ export function getMonthMeta(monthKey) {
       dayNumber,
       weekday,
       weekdayLabel: WEEKDAY_LABELS[weekday],
-      isWeekend: weekday === 5 || weekday === 6
+      isWeekend: weekday === 6
     };
   });
 
