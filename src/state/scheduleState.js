@@ -1,5 +1,6 @@
 ﻿import { useMemo } from 'react';
 import { CELL_CYCLE, ROLE, SHIFT_CODES } from '../engine/constants';
+import { normalizeCellText } from '../engine/textNormalize';
 import { getCurrentMonthKey, getMonthMeta } from '../engine/dateUtils';
 import { generateSchedule } from '../engine/generator';
 import { useHistoryReducer } from './historyState';
@@ -51,11 +52,12 @@ export function scheduleReducer(state, action) {
 
     case 'SET_CELL': {
       const { dayNumber, employeeId, value } = action.payload;
+      const normalizedValue = normalizeCellText(value);
       const nextSchedule = structuredClone(state.schedule);
       const nextMeta = structuredClone(state.scheduleMeta);
       nextSchedule[dayNumber] = nextSchedule[dayNumber] ?? {};
       nextMeta[dayNumber] = nextMeta[dayNumber] ?? {};
-      nextSchedule[dayNumber][employeeId] = value;
+      nextSchedule[dayNumber][employeeId] = normalizedValue;
       nextMeta[dayNumber][employeeId] = 'manual';
       return { ...state, schedule: nextSchedule, scheduleMeta: nextMeta };
     }

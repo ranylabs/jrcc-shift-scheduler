@@ -20,6 +20,27 @@ import EmployeePanel from './ui/components/EmployeePanel';
 import ThemePanel from './ui/components/ThemePanel';
 import Toolbar from './ui/components/Toolbar';
 
+function formatPrintMonthLabel(monthKey) {
+  if (!monthKey) {
+    return '';
+  }
+
+  const [year, month] = monthKey.split('-').map(Number);
+  const date = new Date(year, month - 1, 1);
+  return new Intl.DateTimeFormat('he-IL', { month: 'long', year: 'numeric' }).format(date);
+}
+
+function formatPrintDate(date) {
+  const parts = new Intl.DateTimeFormat('he-IL', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  }).formatToParts(date);
+  const day = parts.find((part) => part.type == 'day')?.value ?? '';
+  const month = parts.find((part) => part.type == 'month')?.value ?? '';
+  const year = parts.find((part) => part.type == 'year')?.value ?? '';
+  return `${day}/${month}/${year}`;
+}
 export default function App() {
   const { state, dispatch, undo, redo, canUndo, canRedo } = useScheduleStore();
   const [authStatus, setAuthStatus] = useState('checking');
@@ -46,6 +67,8 @@ export default function App() {
 
   const monthMeta = useMemo(() => getMonthMeta(state.monthKey), [state.monthKey]);
   const validation = useMemo(() => validateSchedule(state), [state]);
+  const printMonthLabel = formatPrintMonthLabel(state.monthKey);
+  const printDateLabel = formatPrintDate(new Date());
 
   useEffect(() => {
     authorizedRef.current = authorized;
@@ -508,6 +531,10 @@ export default function App() {
 
       <main className="app__main">
         <section className={`board ${exportMode ? 'exportMode' : ''}`} ref={exportRef}>
+          <div className="print-header">
+            <div className="print-header__title">{printMonthLabel}</div>
+            <div className="print-header__date">תאריך הדפסה: {printDateLabel}</div>
+          </div>
           <CalendarGrid
             monthDays={monthMeta.days}
             employees={state.employees}
@@ -538,6 +565,8 @@ export default function App() {
     </div>
   );
 }
+
+
 
 
 

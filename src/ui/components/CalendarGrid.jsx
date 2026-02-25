@@ -1,4 +1,5 @@
-﻿import ScheduleCell from './ScheduleCell';
+﻿import { normalizeCellText } from '../../engine/textNormalize';
+import ScheduleCell from './ScheduleCell';
 
 export default function CalendarGrid({
   monthDays,
@@ -71,7 +72,7 @@ function renderHeaderRows(monthDays, keyPrefix) {
   return (
     <>
       <div className="grid__header" key={`${keyPrefix}-header-days`}>
-        <div className="grid__employeeCell">עובד</div>
+        <div className="grid__employeeCell">יום</div>
         {monthDays.map((day) => (
           <div
             key={`${keyPrefix}-day-${day.dayNumber}`}
@@ -87,7 +88,7 @@ function renderHeaderRows(monthDays, keyPrefix) {
       </div>
 
       <div className="grid__header" key={`${keyPrefix}-header-weekdays`}>
-        <div className="grid__employeeCell grid__headerCell grid__headerBottom">תפקיד</div>
+        <div className="grid__employeeCell grid__headerCell grid__headerBottom">שם עובד</div>
         {monthDays.map((day) => (
           <div
             key={`${keyPrefix}-weekday-${day.dayNumber}`}
@@ -107,10 +108,18 @@ function renderHeaderRows(monthDays, keyPrefix) {
 
 function normalizeCellValue(cell) {
   if (cell && typeof cell === 'object') {
-    return cell.value ?? '';
+    return normalizeCellTextValue(cell.value);
   }
 
-  return cell ?? '';
+  return normalizeCellTextValue(cell);
+}
+
+function normalizeCellTextValue(value) {
+  if (value === '' || value == null) {
+    return value ?? '';
+  }
+
+  return normalizeCellText(value);
 }
 
 function buildSummary(stats) {

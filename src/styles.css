@@ -686,6 +686,33 @@ select {
   display: none !important;
 }
 
+.print-header {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  direction: rtl;
+  padding: 0.35rem 0.5rem 0.6rem;
+  border-bottom: var(--grid-border-width) solid var(--grid-border-color);
+  margin-bottom: 0.4rem;
+}
+
+.print-header__title {
+  font-size: 20px;
+  font-weight: 600;
+  text-align: center;
+  flex: 1;
+}
+
+.print-header__date {
+  font-size: 11px;
+  color: var(--muted-text);
+  white-space: nowrap;
+}
+
+.app.pdf-export .print-header {
+  display: flex;
+}
 .app.pdf-export .grid__employeeRole {
   display: none !important;
 }
@@ -697,6 +724,9 @@ select {
 }
 
 @media print {
+  .print-header {
+    display: flex;
+  }
   :root {
     --cell-height: var(--cell-height-print);
   }
@@ -724,3 +754,4 @@ select {
     max-width: 100% !important;
   }
 }
+
