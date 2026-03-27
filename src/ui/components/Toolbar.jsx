@@ -6,6 +6,7 @@ export default function Toolbar({
   canRedo,
   busy,
   cloudStatus,
+  selectedEmployeeName,
   onMonthChange,
   onMonthShift,
   onUndo,
@@ -17,7 +18,8 @@ export default function Toolbar({
   onToggleThemePanel,
   onSave,
   onLoad,
-  onExportPdf
+  onExportPdf,
+  onExportCalendar
 }) {
   return (
     <div className="toolbar no-print">
@@ -59,6 +61,9 @@ export default function Toolbar({
         </button>
         <button type="button" onClick={onExportPdf}>
           ייצוא PDF
+        </button>
+        <button type="button" disabled={!selectedEmployeeName} onClick={onExportCalendar}>
+          ייצוא ליומן שלי
         </button>
       </div>
 

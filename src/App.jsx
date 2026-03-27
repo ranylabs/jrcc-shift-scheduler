@@ -1,6 +1,7 @@
 ﻿import { useEffect, useMemo, useRef, useState } from 'react';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
+import { exportEmployeeScheduleToIcs } from './engine/icsExport';
 import { getMonthMeta, shiftMonth } from './engine/dateUtils';
 import { validateSchedule } from './engine/validation';
 import {
@@ -67,6 +68,10 @@ export default function App() {
 
   const monthMeta = useMemo(() => getMonthMeta(state.monthKey), [state.monthKey]);
   const validation = useMemo(() => validateSchedule(state), [state]);
+  const selectedEmployee = useMemo(
+    () => state.employees.find((employee) => employee.id === state.selectedEmployeeId) ?? null,
+    [state.employees, state.selectedEmployeeId]
+  );
   const printMonthLabel = formatPrintMonthLabel(state.monthKey);
   const printDateLabel = formatPrintDate(new Date());
 
@@ -428,6 +433,26 @@ export default function App() {
     }
   };
 
+  const handleExportCalendar = () => {
+    if (!selectedEmployee) {
+      setMessage('יש לבחור עובד לפני ייצוא ליומן');
+      return;
+    }
+
+    const result = exportEmployeeScheduleToIcs({
+      monthKey: state.monthKey,
+      employee: selectedEmployee,
+      schedule: state.schedule
+    });
+
+    if (!result.hasEvents) {
+      setMessage(`אין משמרות לייצוא עבור ${selectedEmployee.name} בחודש ${state.monthKey}`);
+      return;
+    }
+
+    setMessage(`יומן אישי יוצא עבור ${selectedEmployee.name}`);
+  };
+
   const cloudStatus = busy ? 'מסנכרן...' : isFirebaseConfigured ? 'מחובר לענן' : 'לא מחובר לענן';
 
   async function loadScheduleForMonth(monthKey, isAutoLoad) {
@@ -486,6 +511,7 @@ export default function App() {
         canRedo={canRedo}
         busy={busy}
         cloudStatus={cloudStatus}
+        selectedEmployeeName={selectedEmployee?.name ?? ''}
         onMonthChange={setMonth}
         onMonthShift={(delta) => setMonth(shiftMonth(state.monthKey, delta))}
         onUndo={undo}
@@ -498,6 +524,7 @@ export default function App() {
         onSave={handleSave}
         onLoad={handleLoad}
         onExportPdf={handleExportPdf}
+        onExportCalendar={handleExportCalendar}
       />
       {cloudDisabled ? (
         <div className="cloudBanner no-print" dir="rtl">
@@ -550,6 +577,8 @@ export default function App() {
 
         <EmployeePanel
           employees={state.employees}
+          selectedEmployeeId={state.selectedEmployeeId}
+          onSelectEmployee={(employeeId) => dispatch({ type: 'SET_SELECTED_EMPLOYEE', payload: employeeId })}
           onAdd={handleAddEmployee}
           onUpdate={handleUpdateEmployee}
           onDelete={handleDeleteEmployee}

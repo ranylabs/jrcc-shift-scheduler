@@ -24,7 +24,8 @@ export function createInitialState(monthKey = getCurrentMonthKey()) {
     monthKey,
     employees,
     schedule,
-    scheduleMeta: {}
+    scheduleMeta: {},
+    selectedEmployeeId: employees[0]?.id ?? null
   };
 }
 
@@ -42,11 +43,22 @@ export function scheduleReducer(state, action) {
 
     case 'SET_EMPLOYEES': {
       const employees = (action.payload ?? []).map(normalizeEmployee);
+      const selectedEmployeeId = employees.some((employee) => employee.id === state.selectedEmployeeId)
+        ? state.selectedEmployeeId
+        : employees[0]?.id ?? null;
       return {
         ...state,
         employees,
         schedule: sanitizeLoadedSchedule(state.monthKey, state.schedule, employees),
-        scheduleMeta: sanitizeScheduleMeta(state.monthKey, state.scheduleMeta, employees)
+        scheduleMeta: sanitizeScheduleMeta(state.monthKey, state.scheduleMeta, employees),
+        selectedEmployeeId
+      };
+    }
+
+    case 'SET_SELECTED_EMPLOYEE': {
+      return {
+        ...state,
+        selectedEmployeeId: action.payload ?? null
       };
     }
 
@@ -59,7 +71,12 @@ export function scheduleReducer(state, action) {
       nextMeta[dayNumber] = nextMeta[dayNumber] ?? {};
       nextSchedule[dayNumber][employeeId] = normalizedValue;
       nextMeta[dayNumber][employeeId] = 'manual';
-      return { ...state, schedule: nextSchedule, scheduleMeta: nextMeta };
+      return {
+        ...state,
+        schedule: nextSchedule,
+        scheduleMeta: nextMeta,
+        selectedEmployeeId: employeeId ?? state.selectedEmployeeId
+      };
     }
 
     case 'CYCLE_CELL': {
@@ -72,7 +89,12 @@ export function scheduleReducer(state, action) {
       nextMeta[dayNumber] = nextMeta[dayNumber] ?? {};
       nextSchedule[dayNumber][employeeId] = next;
       nextMeta[dayNumber][employeeId] = 'manual';
-      return { ...state, schedule: nextSchedule, scheduleMeta: nextMeta };
+      return {
+        ...state,
+        schedule: nextSchedule,
+        scheduleMeta: nextMeta,
+        selectedEmployeeId: employeeId ?? state.selectedEmployeeId
+      };
     }
 
     case 'ADD_EMPLOYEE': {
@@ -119,7 +141,14 @@ export function scheduleReducer(state, action) {
         }
       }
 
-      return { ...state, employees, schedule, scheduleMeta };
+      return {
+        ...state,
+        employees,
+        schedule,
+        scheduleMeta,
+        selectedEmployeeId:
+          state.selectedEmployeeId === employeeId ? employees[0]?.id ?? null : state.selectedEmployeeId
+      };
     }
 
     case 'AUTO_FILL':

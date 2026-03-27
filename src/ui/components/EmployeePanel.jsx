@@ -12,7 +12,7 @@ const EMPTY_FORM = {
   role: ROLE.OPERATOR
 };
 
-export default function EmployeePanel({ employees, onAdd, onUpdate, onDelete }) {
+export default function EmployeePanel({ employees, selectedEmployeeId, onSelectEmployee, onAdd, onUpdate, onDelete }) {
   const [openEditorId, setOpenEditorId] = useState(null);
   const [forms, setForms] = useState({ [CREATE_KEY]: EMPTY_FORM });
 
@@ -29,6 +29,10 @@ export default function EmployeePanel({ employees, onAdd, onUpdate, onDelete }) 
   }, [employees, forms]);
 
   const toggleEditor = (id) => {
+    if (id !== CREATE_KEY) {
+      onSelectEmployee?.(id);
+    }
+
     setOpenEditorId((current) => (current === id ? null : id));
     if (id !== CREATE_KEY) {
       const employee = employees.find((item) => item.id === id);
@@ -115,9 +119,13 @@ export default function EmployeePanel({ employees, onAdd, onUpdate, onDelete }) 
       <div className="employeePanel__list">
         {employees.map((employee) => {
           const isOpen = openEditorId === employee.id;
+          const isSelected = selectedEmployeeId === employee.id;
 
           return (
-            <div key={employee.id} className={isOpen ? 'employeeCard employeeCard--active' : 'employeeCard'}>
+            <div
+              key={employee.id}
+              className={isOpen || isSelected ? 'employeeCard employeeCard--active' : 'employeeCard'}
+            >
               <button type="button" className="employeeCard__select" onClick={() => toggleEditor(employee.id)}>
                 <span>{employee.name}</span>
                 <span>{employee.role}</span>
