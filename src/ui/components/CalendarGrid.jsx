@@ -74,7 +74,7 @@ export default function CalendarGrid({
                 key={`shift-count-${day.dayNumber}`}
                 className={day.isWeekend ? 'grid__dayCell grid__fixCell is-weekend' : 'grid__dayCell grid__fixCell'}
               >
-                {isValid ? 'תקין' : 'FIX'}
+                {isValid ? '' : 'FIX'}
               </div>
             );
           })}
