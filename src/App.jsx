@@ -567,6 +567,7 @@ export default function App() {
             employees={state.employees}
             schedule={state.schedule}
             dayIssues={validation.dayIssues}
+            dayShiftCountStatus={validation.dayShiftCountStatus}
             employeeIssues={validation.employeeIssues}
             statsByEmployee={validation.statsByEmployee}
             onCellClick={(dayNumber, employeeId) =>

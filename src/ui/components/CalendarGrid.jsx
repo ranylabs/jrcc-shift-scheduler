@@ -6,6 +6,7 @@ export default function CalendarGrid({
   employees,
   schedule,
   dayIssues,
+  dayShiftCountStatus,
   employeeIssues,
   statsByEmployee,
   onCellClick
@@ -59,6 +60,21 @@ export default function CalendarGrid({
                 title={issues.join(' | ')}
               >
                 {issues.length > 0 ? 'FIX' : ''}
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="grid__row grid__footerRow">
+          <div className="grid__employeeCell">כמות משמרות</div>
+          {monthDays.map((day) => {
+            const isValid = dayShiftCountStatus?.[day.dayNumber] === 'ok';
+            return (
+              <div
+                key={`shift-count-${day.dayNumber}`}
+                className={day.isWeekend ? 'grid__dayCell grid__fixCell is-weekend' : 'grid__dayCell grid__fixCell'}
+              >
+                {isValid ? 'תקין' : 'FIX'}
               </div>
             );
           })}

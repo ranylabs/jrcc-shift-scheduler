@@ -4,6 +4,7 @@ import { getMonthMeta } from './dateUtils';
 export function validateSchedule({ monthKey, employees, schedule, scheduleMeta }) {
   const month = getMonthMeta(monthKey);
   const dayIssues = {};
+  const dayShiftCountStatus = {};
   const employeeIssues = {};
   const statsByEmployee = {};
 
@@ -42,6 +43,8 @@ export function validateSchedule({ monthKey, employees, schedule, scheduleMeta }
 
     validateShift(dayIssues, day.dayNumber, morningWorkers, 'בוקר');
     validateShift(dayIssues, day.dayNumber, nightWorkers, 'לילה');
+    dayShiftCountStatus[day.dayNumber] =
+      morningWorkers.length === 2 && nightWorkers.length === 2 ? 'ok' : 'fix';
   }
 
   for (const employee of employees) {
@@ -93,6 +96,7 @@ export function validateSchedule({ monthKey, employees, schedule, scheduleMeta }
 
   return {
     dayIssues,
+    dayShiftCountStatus,
     employeeIssues,
     statsByEmployee,
     hasIssues:
