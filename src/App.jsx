@@ -21,6 +21,8 @@ import EmployeePanel from './ui/components/EmployeePanel';
 import ThemePanel from './ui/components/ThemePanel';
 import Toolbar from './ui/components/Toolbar';
 
+const PDF_EXPORT_WIDTH_PX = 1122;
+
 function formatPrintMonthLabel(monthKey) {
   if (!monthKey) {
     return '';
@@ -428,10 +430,18 @@ export default function App() {
       return;
     }
 
+    const previousWidth = exportRef.current.style.width;
+    const previousMaxWidth = exportRef.current.style.maxWidth;
+    const previousOverflow = exportRef.current.style.overflow;
+
     setMessage('מייצא PDF...');
     setExportMode(true);
     setPdfExportMode(true);
     try {
+      exportRef.current.style.width = `${PDF_EXPORT_WIDTH_PX}px`;
+      exportRef.current.style.maxWidth = `${PDF_EXPORT_WIDTH_PX}px`;
+      exportRef.current.style.overflow = 'visible';
+
       await new Promise((resolve) => requestAnimationFrame(resolve));
 
       const canvas = await html2canvas(exportRef.current, {
@@ -463,6 +473,9 @@ export default function App() {
       pdf.save(`schedule-${state.monthKey}.pdf`);
       setMessage(`ה־PDF יוצא עבור ${state.monthKey}`);
     } finally {
+      exportRef.current.style.width = previousWidth;
+      exportRef.current.style.maxWidth = previousMaxWidth;
+      exportRef.current.style.overflow = previousOverflow;
       setExportMode(false);
       setPdfExportMode(false);
     }

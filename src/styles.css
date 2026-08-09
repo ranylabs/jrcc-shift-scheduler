@@ -680,10 +680,18 @@ select {
 
 .board.exportMode {
   --cell-height: var(--cell-height-print);
+  overflow: visible;
+  width: 1122px;
+  max-width: 1122px;
+  margin: 0 auto;
 }
 
 .app.pdf-export .grid__footerRow {
   display: none !important;
+}
+
+.app.pdf-export .app__main {
+  display: block;
 }
 
 .print-header {
