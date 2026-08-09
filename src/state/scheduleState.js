@@ -6,6 +6,7 @@ import { generateSchedule } from '../engine/generator';
 import { useHistoryReducer } from './historyState';
 
 const DEFAULT_NAMES = ['נועה', 'עמית', 'ליאור', 'מאיה', 'דניאל', 'גל', 'יעל', 'עומר', 'רוני', 'עדי', 'שי', 'ניב'];
+const HISTORY_OPTIONS = { storagePrefix: 'JRCC_SCHEDULE_HISTORY_V1' };
 
 export function createInitialState(monthKey = getCurrentMonthKey()) {
   const employees = DEFAULT_NAMES.map((name, index) => ({
@@ -213,7 +214,8 @@ export function scheduleReducer(state, action) {
 export function useScheduleStore() {
   const { state, dispatch, canUndo, canRedo } = useHistoryReducer(
     scheduleReducer,
-    createInitialState()
+    createInitialState(),
+    HISTORY_OPTIONS
   );
 
   return useMemo(
