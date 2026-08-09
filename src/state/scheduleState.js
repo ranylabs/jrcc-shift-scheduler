@@ -188,11 +188,20 @@ export function scheduleReducer(state, action) {
       const schedulePayload = action.payload?.schedule ?? action.payload ?? {};
       const scheduleMetaPayload = action.payload?.scheduleMeta ?? {};
       const normalized = normalizeLoadedSchedulePayload(schedulePayload, scheduleMetaPayload);
+      const nextSchedule = sanitizeLoadedSchedule(state.monthKey, normalized.schedule, state.employees);
+      const nextScheduleMeta = sanitizeScheduleMeta(state.monthKey, normalized.scheduleMeta, state.employees);
+
+      if (
+        areNestedMapsEqual(state.schedule, nextSchedule) &&
+        areNestedMapsEqual(state.scheduleMeta, nextScheduleMeta)
+      ) {
+        return state;
+      }
 
       return {
         ...state,
-        schedule: sanitizeLoadedSchedule(state.monthKey, normalized.schedule, state.employees),
-        scheduleMeta: sanitizeScheduleMeta(state.monthKey, normalized.scheduleMeta, state.employees)
+        schedule: nextSchedule,
+        scheduleMeta: nextScheduleMeta
       };
     }
 
@@ -323,4 +332,32 @@ function normalizeEmployee(employee) {
     maxMorningShifts: Number(employee.maxMorningShifts ?? employee.maxDayShifts ?? 6),
     unavailableWeekdays: Array.isArray(employee.unavailableWeekdays) ? employee.unavailableWeekdays : []
   };
+}
+
+function areNestedMapsEqual(left, right) {
+  const leftKeys = Object.keys(left ?? {});
+  const rightKeys = Object.keys(right ?? {});
+
+  if (leftKeys.length !== rightKeys.length) {
+    return false;
+  }
+
+  for (const key of leftKeys) {
+    const leftValue = left?.[key] ?? {};
+    const rightValue = right?.[key] ?? {};
+    const leftChildKeys = Object.keys(leftValue);
+    const rightChildKeys = Object.keys(rightValue);
+
+    if (leftChildKeys.length !== rightChildKeys.length) {
+      return false;
+    }
+
+    for (const childKey of leftChildKeys) {
+      if (leftValue[childKey] !== rightValue[childKey]) {
+        return false;
+      }
+    }
+  }
+
+  return true;
 }

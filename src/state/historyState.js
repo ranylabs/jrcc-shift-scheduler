@@ -80,6 +80,14 @@ export function useHistoryReducer(reducer, initialPresent) {
         };
       }
 
+      if (action?.type === 'LOAD_MONTH') {
+        return {
+          past: current.past,
+          present: next,
+          future: current.future
+        };
+      }
+
       return {
         past: [...current.past, current.present],
         present: next,

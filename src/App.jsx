@@ -63,6 +63,10 @@ export default function App() {
   const cloudUnsubRef = useRef(null);
   const authorizedRef = useRef(false);
   const employeesReadyRef = useRef(false);
+  const autoSaveReadyRef = useRef(false);
+  const lastSavedSignatureRef = useRef('');
+  const pendingAutoSaveRef = useRef(null);
+  const autoSaveInFlightRef = useRef(false);
   const authorized = authStatus === 'authorized';
   const cloudDisabled = !cloudEnabled || isCloudDisabled();
 
@@ -90,6 +94,38 @@ export default function App() {
     }
   };
 
+  const flushAutoSave = async () => {
+    if (autoSaveInFlightRef.current || !pendingAutoSaveRef.current) {
+      return;
+    }
+
+    autoSaveInFlightRef.current = true;
+
+    while (pendingAutoSaveRef.current) {
+      const nextSave = pendingAutoSaveRef.current;
+      pendingAutoSaveRef.current = null;
+
+      try {
+        await saveScheduleByMonth(nextSave.monthKey, {
+          schedule: nextSave.schedule,
+          scheduleMeta: nextSave.scheduleMeta
+        });
+        lastSavedSignatureRef.current = nextSave.signature;
+
+        if (isCloudDisabled()) {
+          setCloudEnabled(false);
+          setMessage('Cloud sync paused (quota reached)  working locally');
+          break;
+        }
+      } catch {
+        setMessage('שמירה אוטומטית לענן נכשלה');
+        break;
+      }
+    }
+
+    autoSaveInFlightRef.current = false;
+  };
+
   useEffect(() => {
     const unsubscribe = startAuthListener((nextState) => {
       setAuthStatus(nextState.status);
@@ -108,6 +144,9 @@ export default function App() {
       setEmployeesReady(false);
       setUserTheme(null);
       startupLoadedUidRef.current = '';
+      autoSaveReadyRef.current = false;
+      lastSavedSignatureRef.current = '';
+      pendingAutoSaveRef.current = null;
       return () => {};
     }
 
@@ -161,6 +200,7 @@ export default function App() {
 
   useEffect(() => {
     clearCloudSubscription();
+    autoSaveReadyRef.current = false;
 
     if (
       !cloudEnabled ||
@@ -197,6 +237,11 @@ export default function App() {
         }
 
         if (loaded) {
+          lastSavedSignatureRef.current = serializeScheduleState(
+            state.monthKey,
+            loaded.schedule ?? {},
+            loaded.scheduleMeta ?? {}
+          );
           dispatch({
             type: 'LOAD_MONTH',
             payload: {
@@ -204,6 +249,8 @@ export default function App() {
               scheduleMeta: loaded.scheduleMeta ?? {}
             }
           });
+        } else {
+          lastSavedSignatureRef.current = serializeScheduleState(state.monthKey, {}, {});
         }
 
         if (firstSnapshot) {
@@ -214,6 +261,7 @@ export default function App() {
           }
           setBusy(false);
           firstSnapshot = false;
+          autoSaveReadyRef.current = true;
         }
       },
       () => {
@@ -230,6 +278,7 @@ export default function App() {
           setMessage('טעינה אוטומטית מהענן נכשלה');
           setBusy(false);
           firstSnapshot = false;
+          autoSaveReadyRef.current = true;
         }
       }
     );
@@ -240,6 +289,32 @@ export default function App() {
       clearCloudSubscription();
     };
   }, [cloudEnabled, state.monthKey]);
+
+  useEffect(() => {
+    if (
+      !autoSaveReadyRef.current ||
+      !authorized ||
+      !isFirebaseConfigured ||
+      !cloudEnabled ||
+      isCloudDisabled()
+    ) {
+      return;
+    }
+
+    const signature = serializeScheduleState(state.monthKey, state.schedule, state.scheduleMeta);
+    if (signature === lastSavedSignatureRef.current) {
+      return;
+    }
+
+    pendingAutoSaveRef.current = {
+      monthKey: state.monthKey,
+      schedule: structuredClone(state.schedule),
+      scheduleMeta: structuredClone(state.scheduleMeta),
+      signature
+    };
+
+    void flushAutoSave();
+  }, [authorized, cloudEnabled, state.monthKey, state.schedule, state.scheduleMeta]);
 
   const handleSignIn = async () => {
     setAuthBusy(true);
@@ -258,46 +333,6 @@ export default function App() {
       return;
     }
     dispatch({ type: 'SET_MONTH', payload: monthKey });
-  };
-
-  const handleSave = async () => {
-    if (!authorized) {
-      setMessage('אין הרשאה למערכת');
-      return;
-    }
-
-    if (!isFirebaseConfigured) {
-      setMessage('הענן לא מוגדר. יש למלא משתני פיירבייס.');
-      return;
-    }
-
-    if (isCloudDisabled()) {
-      setCloudEnabled(false);
-      setMessage('Cloud sync paused (quota reached)  working locally');
-      return;
-    }
-
-    setBusy(true);
-    setMessage('שומר לענן...');
-
-    try {
-      await saveScheduleByMonth(state.monthKey, {
-        schedule: state.schedule,
-        scheduleMeta: state.scheduleMeta
-      });
-
-      if (isCloudDisabled()) {
-        setCloudEnabled(false);
-        setMessage('Cloud sync paused (quota reached)  working locally');
-        return;
-      }
-
-      setMessage(`נשמר חודש ${state.monthKey}`);
-    } catch {
-      setMessage('שמירה לענן נכשלה');
-    } finally {
-      setBusy(false);
-    }
   };
 
   const handleLoad = async () => {
@@ -521,7 +556,6 @@ export default function App() {
         compactMode={compactMode}
         onToggleCompactMode={() => setCompactMode((current) => !current)}
         onToggleThemePanel={() => setThemePanelOpen((current) => !current)}
-        onSave={handleSave}
         onLoad={handleLoad}
         onExportPdf={handleExportPdf}
         onExportCalendar={handleExportCalendar}
@@ -594,6 +628,14 @@ export default function App() {
       </footer>
     </div>
   );
+}
+
+function serializeScheduleState(monthKey, schedule, scheduleMeta) {
+  return JSON.stringify({
+    monthKey,
+    schedule,
+    scheduleMeta
+  });
 }
 
 

@@ -16,7 +16,6 @@ export default function Toolbar({
   compactMode,
   onToggleCompactMode,
   onToggleThemePanel,
-  onSave,
   onLoad,
   onExportPdf,
   onExportCalendar
@@ -52,9 +51,6 @@ export default function Toolbar({
         </button>
         <button type="button" onClick={onToggleThemePanel}>
           עיצוב
-        </button>
-        <button type="button" disabled={busy} onClick={onSave}>
-          שמירה
         </button>
         <button type="button" disabled={busy} onClick={onLoad}>
           טעינה
