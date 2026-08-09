@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
 const HISTORY_STORAGE_PREFIX = 'JRCC_HISTORY_V1';
+const LAST_MONTH_SUFFIX = '__last_month__';
 
 export function useHistoryReducer(reducer, initialPresent, options = {}) {
   const [history, setHistory] = useState(() => loadInitialHistory(initialPresent, options));
@@ -120,7 +121,8 @@ export function useHistoryReducer(reducer, initialPresent, options = {}) {
 }
 
 function loadInitialHistory(initialPresent, options) {
-  const restored = loadStoredHistory(buildStorageKey(options, initialPresent?.monthKey));
+  const preferredMonthKey = getLastStoredMonthKey(options) || initialPresent?.monthKey;
+  const restored = loadStoredHistory(buildStorageKey(options, preferredMonthKey));
   if (restored) {
     return restored;
   }
@@ -168,6 +170,8 @@ function persistHistory(storageKey, history) {
     return;
   }
 
+  persistLastStoredMonthKey(storageKey, history.present?.monthKey);
+
   let nextHistory = history;
 
   while (true) {
@@ -210,4 +214,34 @@ function isValidHistoryShape(value) {
     'present' in value &&
     Array.isArray(value.future)
   );
+}
+
+function getLastStoredMonthKey(options) {
+  if (typeof window === 'undefined') {
+    return '';
+  }
+
+  try {
+    return window.localStorage.getItem(buildLastMonthKey(options)) ?? '';
+  } catch {
+    return '';
+  }
+}
+
+function persistLastStoredMonthKey(storageKey, monthKey) {
+  if (!storageKey || !monthKey || typeof window === 'undefined') {
+    return;
+  }
+
+  try {
+    const prefix = storageKey.slice(0, storageKey.lastIndexOf(':'));
+    window.localStorage.setItem(`${prefix}:${LAST_MONTH_SUFFIX}`, monthKey);
+  } catch {
+    // ignore
+  }
+}
+
+function buildLastMonthKey(options) {
+  const prefix = options.storagePrefix ?? HISTORY_STORAGE_PREFIX;
+  return `${prefix}:${LAST_MONTH_SUFFIX}`;
 }
