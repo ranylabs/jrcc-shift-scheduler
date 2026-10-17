@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import { exportEmployeeScheduleToIcs } from './engine/icsExport';
@@ -14,7 +14,11 @@ import { disableCloud, enableCloud, isCloudDisabled } from './services/cloudMode
 import { isFirebaseConfigured } from './services/firebase';
 import { loadScheduleByMonth, saveScheduleByMonth, subscribeScheduleByMonth } from './services/scheduleRepository';
 import { loadUserTheme } from './services/userSettingsRepository';
-import { useScheduleStore } from './state/scheduleState';
+import {
+  clearScheduleDirty,
+  getScheduleDirtyToken,
+  useScheduleStore
+} from './state/scheduleState';
 import AuthGate from './ui/components/AuthGate';
 import CalendarGrid from './ui/components/CalendarGrid';
 import EmployeePanel from './ui/components/EmployeePanel';
@@ -66,10 +70,22 @@ export default function App() {
   const authorizedRef = useRef(false);
   const employeesReadyRef = useRef(false);
   const autoSaveReadyRef = useRef(false);
-  const lastSavedSignatureRef = useRef('');
-  const pendingAutoSaveRef = useRef(null);
+  const lastSavedSignaturesRef = useRef(new Map());
+  const pendingAutoSaveRef = useRef(new Map());
   const autoSaveInFlightRef = useRef(false);
+  const autoSaveRetryTimerRef = useRef(null);
+  const autoSaveRetryDelayRef = useRef(1000);
+  const latestScheduleStateRef = useRef(state);
+  latestScheduleStateRef.current = state;
+  const renderedDirtyTokenRef = useRef({ monthKey: '', token: '' });
+  renderedDirtyTokenRef.current = {
+    monthKey: state.monthKey,
+    token: getScheduleDirtyToken(state.monthKey)
+  };
+  const cloudEnabledRef = useRef(cloudEnabled);
+  cloudEnabledRef.current = cloudEnabled;
   const authorized = authStatus === 'authorized';
+  authorizedRef.current = authorized;
   const cloudDisabled = !cloudEnabled || isCloudDisabled();
 
   const monthMeta = useMemo(() => getMonthMeta(state.monthKey), [state.monthKey]);
@@ -96,36 +112,133 @@ export default function App() {
     }
   };
 
-  const flushAutoSave = async () => {
-    if (autoSaveInFlightRef.current || !pendingAutoSaveRef.current) {
+  const queueAutoSave = (scheduleState, dirtyToken = getScheduleDirtyToken(scheduleState?.monthKey)) => {
+    if (!scheduleState?.monthKey) {
       return;
+    }
+
+    pendingAutoSaveRef.current.set(scheduleState.monthKey, {
+      monthKey: scheduleState.monthKey,
+      schedule: structuredClone(scheduleState.schedule ?? {}),
+      scheduleMeta: structuredClone(scheduleState.scheduleMeta ?? {}),
+      signature: serializeScheduleState(
+        scheduleState.monthKey,
+        scheduleState.schedule ?? {},
+        scheduleState.scheduleMeta ?? {}
+      ),
+      dirtyToken
+    });
+  };
+
+  const canFlushAutoSave = () =>
+    autoSaveReadyRef.current &&
+    authorizedRef.current &&
+    isFirebaseConfigured &&
+    cloudEnabledRef.current &&
+    !isCloudDisabled();
+
+  const scheduleAutoSaveRetry = () => {
+    if (autoSaveRetryTimerRef.current || !canFlushAutoSave()) {
+      return;
+    }
+
+    const delay = autoSaveRetryDelayRef.current;
+    autoSaveRetryTimerRef.current = setTimeout(() => {
+      autoSaveRetryTimerRef.current = null;
+      void flushAutoSave();
+    }, delay);
+    autoSaveRetryDelayRef.current = Math.min(delay * 2, 30000);
+  };
+
+  const flushAutoSave = async () => {
+    if (autoSaveInFlightRef.current || !canFlushAutoSave()) {
+      return;
+    }
+
+    if (autoSaveRetryTimerRef.current) {
+      clearTimeout(autoSaveRetryTimerRef.current);
+      autoSaveRetryTimerRef.current = null;
     }
 
     autoSaveInFlightRef.current = true;
 
-    while (pendingAutoSaveRef.current) {
-      const nextSave = pendingAutoSaveRef.current;
-      pendingAutoSaveRef.current = null;
+    try {
+      while (pendingAutoSaveRef.current.size > 0 && canFlushAutoSave()) {
+        const [monthKey, nextSave] = pendingAutoSaveRef.current.entries().next().value;
+        pendingAutoSaveRef.current.delete(monthKey);
 
-      try {
-        await saveScheduleByMonth(nextSave.monthKey, {
-          schedule: nextSave.schedule,
-          scheduleMeta: nextSave.scheduleMeta
-        });
-        lastSavedSignatureRef.current = nextSave.signature;
+        try {
+          await saveScheduleByMonth(nextSave.monthKey, {
+            schedule: nextSave.schedule,
+            scheduleMeta: nextSave.scheduleMeta
+          });
 
-        if (isCloudDisabled()) {
-          setCloudEnabled(false);
-          setMessage('Cloud sync paused (quota reached)  working locally');
+          if (isCloudDisabled()) {
+            if (!pendingAutoSaveRef.current.has(monthKey)) {
+              pendingAutoSaveRef.current.set(monthKey, nextSave);
+            }
+            setCloudEnabled(false);
+            setMessage('Cloud sync paused (quota reached)  working locally');
+            break;
+          }
+
+          lastSavedSignaturesRef.current.set(monthKey, nextSave.signature);
+          if (nextSave.dirtyToken) {
+            clearScheduleDirty(monthKey, nextSave.dirtyToken);
+          }
+          autoSaveRetryDelayRef.current = 1000;
+        } catch {
+          if (!pendingAutoSaveRef.current.has(monthKey)) {
+            pendingAutoSaveRef.current.set(monthKey, nextSave);
+          }
+          setMessage('שמירה אוטומטית לענן נכשלה');
+          scheduleAutoSaveRetry();
           break;
         }
-      } catch {
-        setMessage('שמירה אוטומטית לענן נכשלה');
-        break;
       }
+    } finally {
+      autoSaveInFlightRef.current = false;
+    }
+  };
+
+  const applyCloudSnapshot = (monthKey, loaded) => {
+    const currentState = latestScheduleStateRef.current;
+    if (currentState.monthKey !== monthKey) {
+      return { ignored: true, hasLocalEdits: false };
     }
 
-    autoSaveInFlightRef.current = false;
+    const schedule = loaded?.schedule ?? {};
+    const scheduleMeta = loaded?.scheduleMeta ?? {};
+    const cloudSignature = serializeScheduleState(monthKey, schedule, scheduleMeta);
+    lastSavedSignaturesRef.current.set(monthKey, cloudSignature);
+
+    const dirtyToken = getScheduleDirtyToken(monthKey);
+    if (dirtyToken) {
+      const renderedDirty = renderedDirtyTokenRef.current;
+      if (renderedDirty.monthKey === monthKey && renderedDirty.token !== dirtyToken) {
+        return { ignored: false, hasLocalEdits: true };
+      }
+
+      const localSignature = serializeScheduleState(
+        monthKey,
+        currentState.schedule,
+        currentState.scheduleMeta
+      );
+
+      if (localSignature !== cloudSignature) {
+        queueAutoSave(currentState, dirtyToken);
+        return { ignored: false, hasLocalEdits: true };
+      }
+
+      clearScheduleDirty(monthKey, dirtyToken);
+      return { ignored: false, hasLocalEdits: false };
+    }
+
+    dispatch({
+      type: 'LOAD_MONTH',
+      payload: { schedule, scheduleMeta }
+    });
+    return { ignored: false, hasLocalEdits: false };
   };
 
   useEffect(() => {
@@ -147,8 +260,8 @@ export default function App() {
       setUserTheme(null);
       startupLoadedUidRef.current = '';
       autoSaveReadyRef.current = false;
-      lastSavedSignatureRef.current = '';
-      pendingAutoSaveRef.current = null;
+      lastSavedSignaturesRef.current.clear();
+      pendingAutoSaveRef.current.clear();
       return () => {};
     }
 
@@ -204,9 +317,10 @@ export default function App() {
     clearCloudSubscription();
     autoSaveReadyRef.current = false;
 
+    const monthKey = state.monthKey;
     if (
       !cloudEnabled ||
-      !state.monthKey ||
+      !monthKey ||
       !isFirebaseConfigured ||
       !authorizedRef.current ||
       !employeesReadyRef.current ||
@@ -225,8 +339,12 @@ export default function App() {
     let firstSnapshot = true;
 
     const unsubscribe = subscribeScheduleByMonth(
-      state.monthKey,
+      monthKey,
       (loaded) => {
+        if (latestScheduleStateRef.current.monthKey !== monthKey) {
+          return;
+        }
+
         if (isCloudDisabled()) {
           setCloudEnabled(false);
           if (firstSnapshot) {
@@ -238,35 +356,30 @@ export default function App() {
           return;
         }
 
-        if (loaded) {
-          lastSavedSignatureRef.current = serializeScheduleState(
-            state.monthKey,
-            loaded.schedule ?? {},
-            loaded.scheduleMeta ?? {}
-          );
-          dispatch({
-            type: 'LOAD_MONTH',
-            payload: {
-              schedule: loaded.schedule ?? {},
-              scheduleMeta: loaded.scheduleMeta ?? {}
-            }
-          });
-        } else {
-          lastSavedSignatureRef.current = serializeScheduleState(state.monthKey, {}, {});
-        }
+        const result = applyCloudSnapshot(monthKey, loaded);
 
         if (firstSnapshot) {
-          if (!loaded) {
-            setMessage(`לא נמצאו נתונים לחודש ${state.monthKey}`);
+          if (result.hasLocalEdits) {
+            setMessage(`שינויים מקומיים לחודש ${monthKey} נשמרים לענן`);
+          } else if (!loaded) {
+            setMessage(`לא נמצאו נתונים לחודש ${monthKey}`);
           } else {
-            setMessage(`נטען אוטומטית חודש ${state.monthKey}`);
+            setMessage(`נטען אוטומטית חודש ${monthKey}`);
           }
           setBusy(false);
           firstSnapshot = false;
           autoSaveReadyRef.current = true;
         }
+
+        if (pendingAutoSaveRef.current.size > 0) {
+          void flushAutoSave();
+        }
       },
       () => {
+        if (latestScheduleStateRef.current.monthKey !== monthKey) {
+          return;
+        }
+
         if (isCloudDisabled()) {
           setCloudEnabled(false);
           setMessage('Cloud sync paused (quota reached)  working locally');
@@ -281,6 +394,12 @@ export default function App() {
           setBusy(false);
           firstSnapshot = false;
           autoSaveReadyRef.current = true;
+          const currentState = latestScheduleStateRef.current;
+          const dirtyToken = getScheduleDirtyToken(monthKey);
+          if (currentState.monthKey === monthKey && dirtyToken) {
+            queueAutoSave(currentState, dirtyToken);
+          }
+          void flushAutoSave();
         }
       }
     );
@@ -290,7 +409,7 @@ export default function App() {
     return () => {
       clearCloudSubscription();
     };
-  }, [cloudEnabled, state.monthKey]);
+  }, [authorized, cloudEnabled, employeesReady, state.monthKey]);
 
   useEffect(() => {
     if (
@@ -303,20 +422,20 @@ export default function App() {
       return;
     }
 
-    const signature = serializeScheduleState(state.monthKey, state.schedule, state.scheduleMeta);
-    if (signature === lastSavedSignatureRef.current) {
+    const dirtyToken = getScheduleDirtyToken(state.monthKey);
+    if (!dirtyToken) {
       return;
     }
 
-    pendingAutoSaveRef.current = {
-      monthKey: state.monthKey,
-      schedule: structuredClone(state.schedule),
-      scheduleMeta: structuredClone(state.scheduleMeta),
-      signature
-    };
+    const signature = serializeScheduleState(state.monthKey, state.schedule, state.scheduleMeta);
+    if (signature === lastSavedSignaturesRef.current.get(state.monthKey)) {
+      clearScheduleDirty(state.monthKey, dirtyToken);
+      return;
+    }
 
+    queueAutoSave(state, dirtyToken);
     void flushAutoSave();
-  }, [authorized, cloudEnabled, state.monthKey, state.schedule, state.scheduleMeta]);
+  }, [authorized, cloudEnabled, state, state.monthKey, state.schedule, state.scheduleMeta]);
 
   const handleSignIn = async () => {
     setAuthBusy(true);
@@ -334,6 +453,14 @@ export default function App() {
     if (!monthKey) {
       return;
     }
+
+    const currentState = latestScheduleStateRef.current;
+    const dirtyToken = getScheduleDirtyToken(currentState.monthKey);
+    if (dirtyToken) {
+      queueAutoSave(currentState, dirtyToken);
+      void flushAutoSave();
+    }
+
     dispatch({ type: 'SET_MONTH', payload: monthKey });
   };
 
@@ -525,7 +652,21 @@ export default function App() {
 
       const normalizedSchedule = loaded.schedule ?? loaded;
       const normalizedMeta = loaded.scheduleMeta ?? {};
-      dispatch({ type: 'LOAD_MONTH', payload: { schedule: normalizedSchedule, scheduleMeta: normalizedMeta } });
+      const result = applyCloudSnapshot(monthKey, {
+        schedule: normalizedSchedule,
+        scheduleMeta: normalizedMeta
+      });
+
+      if (result.ignored) {
+        return;
+      }
+
+      if (result.hasLocalEdits) {
+        setMessage(`נשמרים שינויים מקומיים לחודש ${monthKey}`);
+        void flushAutoSave();
+        return;
+      }
+
       setMessage(isAutoLoad ? `נטען אוטומטית חודש ${monthKey}` : `נטען חודש ${monthKey}`);
     } catch {
       setMessage(isAutoLoad ? 'טעינה אוטומטית מהענן נכשלה' : 'טעינה מהענן נכשלה');

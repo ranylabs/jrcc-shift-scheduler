@@ -7,6 +7,62 @@ import { useHistoryReducer } from './historyState';
 
 const DEFAULT_NAMES = ['נועה', 'עמית', 'ליאור', 'מאיה', 'דניאל', 'גל', 'יעל', 'עומר', 'רוני', 'עדי', 'שי', 'ניב'];
 const HISTORY_OPTIONS = { storagePrefix: 'JRCC_SCHEDULE_HISTORY_V1' };
+const SCHEDULE_DIRTY_STORAGE_PREFIX = 'JRCC_SCHEDULE_DIRTY_V1';
+const scheduleDirtyTokens = new Map();
+
+export function markScheduleDirty(monthKey) {
+  if (!monthKey) {
+    return '';
+  }
+
+  const token = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+  scheduleDirtyTokens.set(monthKey, token);
+  try {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(`${SCHEDULE_DIRTY_STORAGE_PREFIX}:${monthKey}`, token);
+    }
+  } catch {
+    // Keep the in-memory marker when browser storage is unavailable.
+  }
+  return token;
+}
+
+export function getScheduleDirtyToken(monthKey) {
+  if (!monthKey) {
+    return '';
+  }
+
+  try {
+    if (typeof window !== 'undefined') {
+      const storedToken = window.localStorage.getItem(`${SCHEDULE_DIRTY_STORAGE_PREFIX}:${monthKey}`);
+      if (storedToken) {
+        scheduleDirtyTokens.set(monthKey, storedToken);
+        return storedToken;
+      }
+    }
+  } catch {
+    // Fall back to the in-memory marker.
+  }
+
+  return scheduleDirtyTokens.get(monthKey) ?? '';
+}
+
+export function clearScheduleDirty(monthKey, expectedToken) {
+  if (!monthKey || !expectedToken || getScheduleDirtyToken(monthKey) !== expectedToken) {
+    return;
+  }
+
+  scheduleDirtyTokens.delete(monthKey);
+  try {
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem(`${SCHEDULE_DIRTY_STORAGE_PREFIX}:${monthKey}`);
+    }
+  } catch {
+    // Keep local history as the recovery source if browser storage is unavailable.
+  }
+}
+
+
 
 export function createInitialState(monthKey = getCurrentMonthKey()) {
   const employees = DEFAULT_NAMES.map((name, index) => ({
@@ -212,11 +268,22 @@ export function scheduleReducer(state, action) {
 }
 
 export function useScheduleStore() {
-  const { state, dispatch, canUndo, canRedo } = useHistoryReducer(
+  const { state, dispatch: historyDispatch, canUndo, canRedo } = useHistoryReducer(
     scheduleReducer,
     createInitialState(),
     HISTORY_OPTIONS
   );
+
+  const dispatch = (action) => {
+    if (isScheduleMutation(action)) {
+      const monthKey =
+        action.type === 'REPLACE' || action.type === 'RESET'
+          ? action.payload?.monthKey ?? state.monthKey
+          : state.monthKey;
+      markScheduleDirty(monthKey);
+    }
+    historyDispatch(action);
+  };
 
   return useMemo(
     () => ({
@@ -231,6 +298,22 @@ export function useScheduleStore() {
     }),
     [state, dispatch, canUndo, canRedo]
   );
+}
+
+function isScheduleMutation(action) {
+  return [
+    'ADD_EMPLOYEE',
+    'AUTO_FILL',
+    'CLEAR_GENERATED',
+    'CYCLE_CELL',
+    'DELETE_EMPLOYEE',
+    'GENERATE_SCHEDULE',
+    'REDO',
+    'REPLACE',
+    'RESET',
+    'SET_CELL',
+    'UNDO'
+  ].includes(action?.type);
 }
 
 function normalizeLoadedSchedulePayload(schedulePayload, scheduleMetaPayload) {
