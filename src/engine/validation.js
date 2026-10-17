@@ -1,5 +1,6 @@
 ﻿import { SHIFT_CODES, ROLE } from './constants';
 import { getMonthMeta } from './dateUtils';
+import { isEmployeeUnavailableForShift } from './employeeAvailability';
 
 export function validateSchedule({ monthKey, employees, schedule, scheduleMeta }) {
   const month = getMonthMeta(monthKey);
@@ -31,13 +32,14 @@ export function validateSchedule({ monthKey, employees, schedule, scheduleMeta }
         statsByEmployee[employee.id].total += 1;
       }
 
-      const unavailable = employee.unavailableWeekdays ?? [];
-      if (
-        (cell === SHIFT_CODES.MORNING || cell === SHIFT_CODES.NIGHT) &&
-        unavailable.includes(day.weekday)
-      ) {
+      const isWorkingShift = cell === SHIFT_CODES.MORNING || cell === SHIFT_CODES.NIGHT;
+      if (isWorkingShift && isEmployeeUnavailableForShift(employee, day.weekday, cell)) {
         dayIssues[day.dayNumber] = dayIssues[day.dayNumber] ?? [];
-        dayIssues[day.dayNumber].push(`${employee.name}: הוקצה ביום חסום`);
+        const isWholeDayBlocked = (employee.unavailableWeekdays ?? []).includes(day.weekday);
+        const issue = isWholeDayBlocked
+          ? `${employee.name}: הוקצה ביום חסום`
+          : `${employee.name}: הוקצה במשמרת ${cell === SHIFT_CODES.MORNING ? 'בוקר' : 'לילה'} חסומה`;
+        dayIssues[day.dayNumber].push(issue);
       }
     }
 

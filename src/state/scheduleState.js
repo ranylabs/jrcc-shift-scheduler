@@ -1,6 +1,7 @@
 ﻿import { useMemo } from 'react';
 import { CELL_CYCLE, ROLE, SHIFT_CODES } from '../engine/constants';
 import { normalizeCellText } from '../engine/textNormalize';
+import { normalizeUnavailableShiftsByWeekday } from '../engine/employeeAvailability';
 import { getCurrentMonthKey, getMonthMeta } from '../engine/dateUtils';
 import { generateSchedule } from '../engine/generator';
 import { useHistoryReducer } from './historyState';
@@ -72,6 +73,7 @@ export function createInitialState(monthKey = getCurrentMonthKey()) {
     maxNightShifts: 6,
     maxMorningShifts: 6,
     unavailableWeekdays: [],
+    unavailableShiftsByWeekday: {},
     role: index < 4 ? ROLE.RESPONSIBLE : ROLE.OPERATOR
   }));
 
@@ -415,7 +417,8 @@ function normalizeEmployee(employee) {
     targetShifts: Number(employee.targetShifts ?? employee.monthlyTargetShifts ?? 8),
     maxNightShifts: Number(employee.maxNightShifts ?? 6),
     maxMorningShifts: Number(employee.maxMorningShifts ?? employee.maxDayShifts ?? 6),
-    unavailableWeekdays: Array.isArray(employee.unavailableWeekdays) ? employee.unavailableWeekdays : []
+    unavailableWeekdays: Array.isArray(employee.unavailableWeekdays) ? employee.unavailableWeekdays : [],
+    unavailableShiftsByWeekday: normalizeUnavailableShiftsByWeekday(employee.unavailableShiftsByWeekday)
   };
 }
 

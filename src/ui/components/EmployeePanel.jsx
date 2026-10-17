@@ -1,5 +1,6 @@
-﻿import { useMemo, useState } from 'react';
-import { ROLE, WEEKDAY_LABELS } from '../../engine/constants';
+﻿import { Fragment, useMemo, useState } from 'react';
+import { ROLE, SHIFT_CODES, WEEKDAY_LABELS } from '../../engine/constants';
+import { normalizeUnavailableShiftsByWeekday } from '../../engine/employeeAvailability';
 
 const CREATE_KEY = '__create__';
 
@@ -9,8 +10,15 @@ const EMPTY_FORM = {
   maxNightShifts: 6,
   maxMorningShifts: 6,
   unavailableWeekdays: [],
+  unavailableShiftsByWeekday: {},
   role: ROLE.OPERATOR
 };
+
+const WEEKDAY_NAMES = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+const SHIFT_TYPES = [
+  { code: SHIFT_CODES.MORNING, label: 'בוקר' },
+  { code: SHIFT_CODES.NIGHT, label: 'לילה' }
+];
 
 export default function EmployeePanel({ employees, selectedEmployeeId, onSelectEmployee, onAdd, onUpdate, onDelete }) {
   const [openEditorId, setOpenEditorId] = useState(null);
@@ -65,6 +73,24 @@ export default function EmployeePanel({ employees, selectedEmployeeId, onSelectE
     );
   };
 
+  const handleToggleShiftWeekday = (id, weekdayIndex, shiftCode) => {
+    const form = formById[id] ?? EMPTY_FORM;
+    const restrictions = normalizeUnavailableShiftsByWeekday(form.unavailableShiftsByWeekday);
+    const dayShifts = restrictions[weekdayIndex] ?? [];
+    const nextDayShifts = dayShifts.includes(shiftCode)
+      ? dayShifts.filter((shift) => shift !== shiftCode)
+      : [...dayShifts, shiftCode];
+    const nextRestrictions = { ...restrictions };
+
+    if (nextDayShifts.length > 0) {
+      nextRestrictions[weekdayIndex] = nextDayShifts;
+    } else {
+      delete nextRestrictions[weekdayIndex];
+    }
+
+    handleFormChange(id, 'unavailableShiftsByWeekday', nextRestrictions);
+  };
+
   const handleSubmit = (event, id) => {
     event.preventDefault();
     event.stopPropagation();
@@ -76,7 +102,8 @@ export default function EmployeePanel({ employees, selectedEmployeeId, onSelectE
       targetShifts: Number(form.targetShifts),
       maxNightShifts: Number(form.maxNightShifts),
       maxMorningShifts: Number(form.maxMorningShifts),
-      unavailableWeekdays: [...(form.unavailableWeekdays ?? [])].sort((a, b) => a - b)
+      unavailableWeekdays: [...(form.unavailableWeekdays ?? [])].sort((a, b) => a - b),
+      unavailableShiftsByWeekday: normalizeUnavailableShiftsByWeekday(form.unavailableShiftsByWeekday)
     };
 
     if (!payload.name) {
@@ -110,6 +137,9 @@ export default function EmployeePanel({ employees, selectedEmployeeId, onSelectE
             submitLabel="הוספה"
             onChange={(key, value) => handleFormChange(CREATE_KEY, key, value)}
             onToggleWeekday={(weekdayIndex) => handleToggleWeekday(CREATE_KEY, weekdayIndex)}
+            onToggleShiftWeekday={(weekdayIndex, shiftCode) =>
+              handleToggleShiftWeekday(CREATE_KEY, weekdayIndex, shiftCode)
+            }
             onSubmit={(event) => handleSubmit(event, CREATE_KEY)}
             onCancel={() => setOpenEditorId(null)}
           />
@@ -149,6 +179,9 @@ export default function EmployeePanel({ employees, selectedEmployeeId, onSelectE
                     submitLabel="שמירה"
                     onChange={(key, value) => handleFormChange(employee.id, key, value)}
                     onToggleWeekday={(weekdayIndex) => handleToggleWeekday(employee.id, weekdayIndex)}
+                    onToggleShiftWeekday={(weekdayIndex, shiftCode) =>
+                      handleToggleShiftWeekday(employee.id, weekdayIndex, shiftCode)
+                    }
                     onSubmit={(event) => handleSubmit(event, employee.id)}
                     onCancel={() => setOpenEditorId(null)}
                   />
@@ -162,7 +195,15 @@ export default function EmployeePanel({ employees, selectedEmployeeId, onSelectE
   );
 }
 
-function EmployeeEditor({ form, submitLabel, onChange, onToggleWeekday, onSubmit, onCancel }) {
+function EmployeeEditor({
+  form,
+  submitLabel,
+  onChange,
+  onToggleWeekday,
+  onToggleShiftWeekday,
+  onSubmit,
+  onCancel
+}) {
   return (
     <form className="employeeForm" onSubmit={onSubmit}>
       <label>
@@ -209,7 +250,7 @@ function EmployeeEditor({ form, submitLabel, onChange, onToggleWeekday, onSubmit
       </label>
 
       <fieldset>
-        <legend>ימים חסומים</legend>
+        <legend>ימים חסומים — כל היום</legend>
         <div className="weekdayGrid">
           {WEEKDAY_LABELS.map((label, weekdayIndex) => {
             const checked = (form.unavailableWeekdays ?? []).includes(weekdayIndex);
@@ -221,6 +262,39 @@ function EmployeeEditor({ form, submitLabel, onChange, onToggleWeekday, onSubmit
             );
           })}
         </div>
+      </fieldset>
+
+      <fieldset className="employeeForm__shiftRestrictions">
+        <legend>חסימת משמרות קבועה לפי יום</legend>
+        <div className="shiftRestrictionGrid">
+          <span className="shiftRestrictionGrid__corner">משמרת</span>
+          {WEEKDAY_LABELS.map((label, weekdayIndex) => (
+            <span className="shiftRestrictionGrid__weekday" key={`shift-day-${weekdayIndex}`}>
+              {label}
+            </span>
+          ))}
+          {SHIFT_TYPES.map((shiftType) => (
+            <Fragment key={shiftType.code}>
+              <span className="shiftRestrictionGrid__shift">{shiftType.label}</span>
+              {WEEKDAY_LABELS.map((_, weekdayIndex) => {
+                const checked = (form.unavailableShiftsByWeekday?.[weekdayIndex] ?? []).includes(
+                  shiftType.code
+                );
+                return (
+                  <label className="shiftRestrictionGrid__day" key={`${shiftType.code}-${weekdayIndex}`}>
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      aria-label={`חסימת משמרת ${shiftType.label} ביום ${WEEKDAY_NAMES[weekdayIndex]}`}
+                      onChange={() => onToggleShiftWeekday(weekdayIndex, shiftType.code)}
+                    />
+                  </label>
+                );
+              })}
+            </Fragment>
+          ))}
+        </div>
+        <small className="employeeForm__hint">החסימה חוזרת בכל שבוע; יום חסום מונע את שתי המשמרות.</small>
       </fieldset>
 
       <div className="employeeForm__actions">
@@ -240,6 +314,7 @@ function mapEmployeeToForm(employee) {
     maxNightShifts: employee.maxNightShifts,
     maxMorningShifts: employee.maxMorningShifts,
     unavailableWeekdays: employee.unavailableWeekdays ?? [],
+    unavailableShiftsByWeekday: normalizeUnavailableShiftsByWeekday(employee.unavailableShiftsByWeekday),
     role: employee.role
   };
 }

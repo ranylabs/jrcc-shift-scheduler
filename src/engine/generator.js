@@ -1,5 +1,6 @@
 import { SHIFT_CODES, ROLE } from './constants';
 import { getMonthMeta } from './dateUtils';
+import { isEmployeeUnavailableForShift } from './employeeAvailability';
 
 export function generateSchedule({ monthKey, employees, schedule, scheduleMeta }) {
   const nextSchedule = structuredClone(schedule);
@@ -109,7 +110,7 @@ function isAvailableForShift(
     return false;
   }
 
-  if ((employee.unavailableWeekdays ?? []).includes(day.weekday)) {
+  if (isEmployeeUnavailableForShift(employee, day.weekday, shiftCode)) {
     return false;
   }
 

@@ -584,6 +584,55 @@ select {
   padding: 0.28rem;
 }
 
+.employeeForm__shiftRestrictions {
+  gap: 0.4rem !important;
+}
+
+.shiftRestrictionGrid {
+  display: grid;
+  grid-template-columns: 3.15rem repeat(7, minmax(0, 1fr));
+  align-items: center;
+  gap: 0.18rem;
+  text-align: center;
+}
+
+.shiftRestrictionGrid__corner,
+.shiftRestrictionGrid__weekday {
+  color: var(--muted-text);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.shiftRestrictionGrid__shift {
+  font-size: 0.76rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.employeeForm .shiftRestrictionGrid__day {
+  min-height: 1.8rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: var(--grid-border-width) solid var(--grid-border-color);
+  border-radius: 6px;
+  padding: 0.12rem;
+}
+
+.employeeForm input[type='checkbox'] {
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+  padding: 0;
+  accent-color: #0f8f6f;
+}
+
+.employeeForm__hint {
+  color: var(--muted-text);
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+
 .employeeForm__actions {
   display: flex;
   gap: 0.4rem;
