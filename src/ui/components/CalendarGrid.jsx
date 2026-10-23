@@ -13,19 +13,19 @@ export default function CalendarGrid({
   onCellClick
 }) {
   const columnTemplate = `var(--employee-col-width) repeat(${monthDays.length}, minmax(0, 1fr))`;
-  const hasDayEvents = monthDays.some((day) => dayEvents?.[day.dayNumber]);
+  const hasDayAnnotations = monthDays.some((day) => hasVisibleDayAnnotation(dayEvents?.[day.dayNumber]));
 
   return (
     <div className="calendarWrap">
       <div className="grid" dir="rtl" style={{ gridTemplateColumns: columnTemplate }}>
         {renderHeaderRows(monthDays, 'top', dayEvents)}
 
-        {hasDayEvents ? (
+        {hasDayAnnotations ? (
           <div className="grid__row grid__eventRow">
-            <div className="grid__employeeCell grid__eventLabelCell">אירוע צוות</div>
+            <div className="grid__employeeCell grid__eventLabelCell">יום מיוחד</div>
             {monthDays.map((day) => {
               const event = dayEvents?.[day.dayNumber];
-              const symbol = event?.symbol || event?.label?.slice(0, 1) || (event ? '●' : '');
+              const symbol = event?.symbol || event?.label?.slice(0, 1) || '';
               return (
                 <div
                   key={`event-${day.dayNumber}`}
@@ -169,6 +169,10 @@ function getDayCellClassName(day, event, extraClass = '') {
 
 function getDayCellStyle(event) {
   return event ? { '--special-day-bg': event.color ?? '#fff2cc' } : undefined;
+}
+
+function hasVisibleDayAnnotation(event) {
+  return Boolean(event?.symbol?.trim() || event?.label?.trim());
 }
 
 function normalizeCellValue(cell) {

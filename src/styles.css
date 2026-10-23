@@ -357,6 +357,8 @@ select {
   overflow: hidden;
   padding: 1px;
   background: var(--row-even-bg);
+  border: var(--grid-border-width) solid var(--grid-border-color);
+  box-sizing: border-box;
 }
 
 .grid__eventCell.is-special-day {
@@ -368,7 +370,7 @@ select {
 }
 
 .grid__eventSymbol {
-  font-size: 0.82rem;
+  font-size: 1.2rem;
   font-weight: 700;
   line-height: 1;
 }
@@ -852,6 +854,10 @@ select {
   display: none !important;
 }
 
+.app.pdf-export .grid__eventSymbol {
+  font-size: 1rem;
+}
+
 @media (max-width: 1100px) {
   .app__main {
     grid-template-columns: 1fr;
@@ -861,6 +867,10 @@ select {
 @media print {
   .print-header {
     display: flex;
+  }
+
+  .grid__eventSymbol {
+    font-size: 1rem;
   }
   :root {
     --cell-height: var(--cell-height-print);

@@ -202,7 +202,7 @@ export default function ThemePanel({
       </div>
 
       <div className="themePanel__eventEditor">
-        <h4>סימון יום מיוחד / אירוע צוות</h4>
+        <h4>הגדרת יום מיוחד</h4>
         <div className="themePanel__eventFields">
           <label className="themePanel__control">
             <span>תאריך בחודש</span>
@@ -215,12 +215,12 @@ export default function ThemePanel({
             </select>
           </label>
           <label className="themePanel__control">
-            <span>שם האירוע (לא חובה)</span>
+            <span>תיאור היום (לא חובה)</span>
             <input
               type="text"
               value={dayEventLabel}
               maxLength={40}
-              placeholder="למשל: ערב חג / יום רענון"
+              placeholder="למשל: חג / הדרכה / יום רענון"
               onChange={(event) => setDayEventLabel(event.target.value)}
             />
           </label>
