@@ -63,9 +63,21 @@ const CONTROL_FIELDS = [
   { key: '--weekday-header-gradient-end', label: 'גרדיאנט ימי שבוע - צבע סיום', type: 'color' }
 ];
 
-export default function ThemePanel({ open, authReady }) {
+export default function ThemePanel({
+  open,
+  authReady,
+  monthKey,
+  monthDays = [],
+  dayEvents = {},
+  onSaveDayEvent
+}) {
   const [theme, setTheme] = useState(DEFAULT_THEME);
   const cloudLoadedRef = useRef(false);
+  const [selectedDayNumber, setSelectedDayNumber] = useState('1');
+  const [dayEventLabel, setDayEventLabel] = useState('');
+  const [dayEventSymbol, setDayEventSymbol] = useState('');
+  const [dayEventColor, setDayEventColor] = useState('#fff2cc');
+  const selectedDayEvent = dayEvents?.[selectedDayNumber] ?? null;
 
   useEffect(() => {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -107,6 +119,17 @@ export default function ThemePanel({ open, authReady }) {
       cancelled = true;
     };
   }, [authReady]);
+
+  useEffect(() => {
+    const event = dayEvents?.[selectedDayNumber] ?? {};
+    setDayEventLabel(event.label ?? '');
+    setDayEventSymbol(event.symbol ?? '');
+    setDayEventColor(event.color ?? '#fff2cc');
+  }, [dayEvents, monthKey, selectedDayNumber]);
+
+  useEffect(() => {
+    setSelectedDayNumber('1');
+  }, [monthKey]);
 
   const fields = useMemo(() => CONTROL_FIELDS, []);
 
@@ -176,6 +199,69 @@ export default function ThemePanel({ open, authReady }) {
             )}
           </label>
         ))}
+      </div>
+
+      <div className="themePanel__eventEditor">
+        <h4>סימון יום מיוחד / אירוע צוות</h4>
+        <div className="themePanel__eventFields">
+          <label className="themePanel__control">
+            <span>תאריך בחודש</span>
+            <select value={selectedDayNumber} onChange={(event) => setSelectedDayNumber(event.target.value)}>
+              {monthDays.map((day) => (
+                <option key={day.dayNumber} value={day.dayNumber}>
+                  {day.dayNumber} - {day.weekdayLabel}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="themePanel__control">
+            <span>שם האירוע (לא חובה)</span>
+            <input
+              type="text"
+              value={dayEventLabel}
+              maxLength={40}
+              placeholder="למשל: ערב חג / יום רענון"
+              onChange={(event) => setDayEventLabel(event.target.value)}
+            />
+          </label>
+          <label className="themePanel__control">
+            <span>אות לתצוגה (לא חובה)</span>
+            <input
+              type="text"
+              value={dayEventSymbol}
+              maxLength={2}
+              placeholder="למשל: ר"
+              onChange={(event) => setDayEventSymbol(event.target.value)}
+            />
+          </label>
+          <label className="themePanel__control">
+            <span>צבע טור היום</span>
+            <input
+              type="color"
+              value={dayEventColor}
+              onChange={(event) => setDayEventColor(event.target.value)}
+            />
+          </label>
+        </div>
+        <div className="themePanel__eventActions">
+          <button
+            type="button"
+            onClick={() =>
+              onSaveDayEvent?.(Number(selectedDayNumber), {
+                label: dayEventLabel.trim(),
+                symbol: dayEventSymbol.trim(),
+                color: dayEventColor
+              })
+            }
+          >
+            שמירת סימון
+          </button>
+          {selectedDayEvent ? (
+            <button type="button" onClick={() => onSaveDayEvent?.(Number(selectedDayNumber), null)}>
+              הסרת סימון
+            </button>
+          ) : null}
+        </div>
       </div>
     </section>
   );

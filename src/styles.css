@@ -194,6 +194,45 @@ select {
   padding: 0.3rem 0.35rem;
 }
 
+.themePanel__eventEditor {
+  margin-top: 0.9rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--grid-border-color);
+}
+
+.themePanel__eventEditor h4 {
+  margin: 0 0 0.6rem;
+}
+
+.themePanel__eventFields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.55rem 0.8rem;
+}
+
+.themePanel__eventFields input[type='text'] {
+  width: 100%;
+  min-height: 34px;
+  border: var(--grid-border-width) solid var(--grid-border-color);
+  border-radius: 8px;
+  padding: 0.35rem 0.45rem;
+}
+
+.themePanel__eventActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.65rem;
+}
+
+.themePanel__eventActions button {
+  border: var(--grid-border-width) solid var(--grid-border-color);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 0.4rem 0.7rem;
+  cursor: pointer;
+}
+
 .app__main {
   min-height: 0;
   display: grid;
@@ -302,6 +341,45 @@ select {
 .grid__row.is-row-even .grid__dayCell.is-weekend,
 .grid__row.is-row-odd .grid__dayCell.is-weekend {
   background: var(--weekend-bg);
+}
+
+.grid__dayCell.is-special-day {
+  background: var(--special-day-bg, #fff2cc) !important;
+}
+
+.grid__dayCell.is-special-day .schedule-cell {
+  background: var(--special-day-bg, #fff2cc) !important;
+}
+
+.grid__eventCell {
+  flex-direction: column;
+  gap: 1px;
+  overflow: hidden;
+  padding: 1px;
+  background: var(--row-even-bg);
+}
+
+.grid__eventCell.is-special-day {
+  background: var(--special-day-bg, #fff2cc);
+}
+
+.grid__eventLabelCell {
+  font-weight: 700;
+}
+
+.grid__eventSymbol {
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.grid__eventText {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 0.55rem;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .weekday-header-gradient-on .grid__weekdayLabelCell:not(.is-weekend) {

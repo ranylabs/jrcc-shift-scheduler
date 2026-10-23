@@ -84,6 +84,7 @@ export function createInitialState(monthKey = getCurrentMonthKey()) {
     employees,
     schedule,
     scheduleMeta: {},
+    dayEvents: {},
     selectedEmployeeId: employees[0]?.id ?? null
   };
 }
@@ -96,7 +97,8 @@ export function scheduleReducer(state, action) {
         ...state,
         monthKey,
         schedule: {},
-        scheduleMeta: {}
+        scheduleMeta: {},
+        dayEvents: {}
       };
     }
 
@@ -119,6 +121,14 @@ export function scheduleReducer(state, action) {
         ...state,
         selectedEmployeeId: action.payload ?? null
       };
+    }
+
+    case 'SET_DAY_EVENTS': {
+      const dayEvents = sanitizeDayEvents(state.monthKey, action.payload);
+      if (areDayEventsEqual(state.dayEvents, dayEvents)) {
+        return state;
+      }
+      return { ...state, dayEvents };
     }
 
     case 'SET_CELL': {
@@ -249,10 +259,12 @@ export function scheduleReducer(state, action) {
       const normalized = normalizeLoadedSchedulePayload(schedulePayload, scheduleMetaPayload);
       const nextSchedule = sanitizeLoadedSchedule(state.monthKey, normalized.schedule, state.employees);
       const nextScheduleMeta = sanitizeScheduleMeta(state.monthKey, normalized.scheduleMeta, state.employees);
+      const nextDayEvents = sanitizeDayEvents(state.monthKey, action.payload?.dayEvents);
 
       if (
         areNestedMapsEqual(state.schedule, nextSchedule) &&
-        areNestedMapsEqual(state.scheduleMeta, nextScheduleMeta)
+        areNestedMapsEqual(state.scheduleMeta, nextScheduleMeta) &&
+        areDayEventsEqual(state.dayEvents, nextDayEvents)
       ) {
         return state;
       }
@@ -260,7 +272,8 @@ export function scheduleReducer(state, action) {
       return {
         ...state,
         schedule: nextSchedule,
-        scheduleMeta: nextScheduleMeta
+        scheduleMeta: nextScheduleMeta,
+        dayEvents: nextDayEvents
       };
     }
 
@@ -314,6 +327,7 @@ function isScheduleMutation(action) {
     'REPLACE',
     'RESET',
     'SET_CELL',
+    'SET_DAY_EVENTS',
     'UNDO'
   ].includes(action?.type);
 }
@@ -386,6 +400,36 @@ function sanitizeScheduleMeta(monthKey, loadedMeta, employees) {
   }
 
   return next;
+}
+
+function sanitizeDayEvents(monthKey, loadedEvents) {
+  const { days } = getMonthMeta(monthKey);
+  const next = {};
+
+  for (const { dayNumber } of days) {
+    const event = loadedEvents?.[dayNumber] ?? loadedEvents?.[String(dayNumber)];
+    if (!event || typeof event !== 'object') {
+      continue;
+    }
+
+    const color = /^#[\da-f]{6}$/i.test(String(event.color ?? '')) ? event.color : '#fff2cc';
+    next[dayNumber] = {
+      label: String(event.label ?? '').trim().slice(0, 40),
+      symbol: String(event.symbol ?? '').trim().slice(0, 2),
+      color
+    };
+  }
+
+  return next;
+}
+
+function areDayEventsEqual(left, right) {
+  const leftKeys = Object.keys(left ?? {});
+  const rightKeys = Object.keys(right ?? {});
+  return (
+    leftKeys.length === rightKeys.length &&
+    leftKeys.every((key) => JSON.stringify(left[key]) === JSON.stringify(right[key]))
+  );
 }
 
 function createEmptySchedule(monthKey, employees) {

@@ -51,7 +51,8 @@ export async function loadScheduleByMonth(monthKey) {
     return {
       monthKey,
       schedule: data.schedule ?? {},
-      scheduleMeta: data.scheduleMeta ?? {}
+      scheduleMeta: data.scheduleMeta ?? {},
+      dayEvents: data.dayEvents ?? {}
     };
   } catch (error) {
     if (handleCloudDisableError(error)) {
@@ -84,7 +85,8 @@ export function subscribeScheduleByMonth(monthKey, onUpdate, onError) {
         onUpdate({
           monthKey,
           schedule: data.schedule ?? {},
-          scheduleMeta: data.scheduleMeta ?? {}
+          scheduleMeta: data.scheduleMeta ?? {},
+          dayEvents: data.dayEvents ?? {}
         });
       },
       (error) => {

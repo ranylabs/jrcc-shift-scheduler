@@ -5,6 +5,7 @@ export default function CalendarGrid({
   monthDays,
   employees,
   schedule,
+  dayEvents = {},
   dayIssues,
   dayShiftCountStatus,
   employeeIssues,
@@ -12,11 +13,34 @@ export default function CalendarGrid({
   onCellClick
 }) {
   const columnTemplate = `var(--employee-col-width) repeat(${monthDays.length}, minmax(0, 1fr))`;
+  const hasDayEvents = monthDays.some((day) => dayEvents?.[day.dayNumber]);
 
   return (
     <div className="calendarWrap">
       <div className="grid" dir="rtl" style={{ gridTemplateColumns: columnTemplate }}>
-        {renderHeaderRows(monthDays, 'top')}
+        {renderHeaderRows(monthDays, 'top', dayEvents)}
+
+        {hasDayEvents ? (
+          <div className="grid__row grid__eventRow">
+            <div className="grid__employeeCell grid__eventLabelCell">אירוע צוות</div>
+            {monthDays.map((day) => {
+              const event = dayEvents?.[day.dayNumber];
+              const symbol = event?.symbol || event?.label?.slice(0, 1) || (event ? '●' : '');
+              return (
+                <div
+                  key={`event-${day.dayNumber}`}
+                  className={getDayCellClassName(day, event, 'grid__eventCell')}
+                  style={getDayCellStyle(event)}
+                  title={event?.label || event?.symbol || undefined}
+                  aria-label={event?.label || event?.symbol || undefined}
+                >
+                  <span className="grid__eventSymbol">{symbol}</span>
+                  <span className="grid__eventText">{event?.label ?? ''}</span>
+                </div>
+              );
+            })}
+          </div>
+        ) : null}
 
         {employees.map((employee, rowIndex) => {
           const rowClass = rowIndex % 2 === 0 ? 'is-row-even' : 'is-row-odd';
@@ -32,32 +56,39 @@ export default function CalendarGrid({
                 ) : null}
               </div>
 
-              {monthDays.map((day) => (
-                <div
-                  key={`${employee.id}-${day.dayNumber}`}
-                  className={day.isWeekend ? 'grid__dayCell is-weekend' : 'grid__dayCell'}
-                >
-                  <ScheduleCell
-                    value={normalizeCellValue(schedule?.[day.dayNumber]?.[employee.id])}
-                    onClick={() => onCellClick(day.dayNumber, employee.id)}
-                  />
-                </div>
-              ))}
+              {monthDays.map((day) => {
+                const event = dayEvents?.[day.dayNumber];
+                return (
+                  <div
+                    key={`${employee.id}-${day.dayNumber}`}
+                    className={getDayCellClassName(day, event)}
+                    style={getDayCellStyle(event)}
+                    title={event?.label || undefined}
+                  >
+                    <ScheduleCell
+                      value={normalizeCellValue(schedule?.[day.dayNumber]?.[employee.id])}
+                      onClick={() => onCellClick(day.dayNumber, employee.id)}
+                    />
+                  </div>
+                );
+              })}
             </div>
           );
         })}
 
-        {renderHeaderRows(monthDays, 'bottom')}
+        {renderHeaderRows(monthDays, 'bottom', dayEvents)}
 
         <div className="grid__row grid__footerRow">
           <div className="grid__employeeCell">ולידציה</div>
           {monthDays.map((day) => {
             const issues = dayIssues[day.dayNumber] ?? [];
+            const event = dayEvents?.[day.dayNumber];
             return (
               <div
                 key={`fix-${day.dayNumber}`}
-                className={day.isWeekend ? 'grid__dayCell grid__fixCell is-weekend' : 'grid__dayCell grid__fixCell'}
-                title={issues.join(' | ')}
+                className={getDayCellClassName(day, event, 'grid__fixCell')}
+                style={getDayCellStyle(event)}
+                title={[event?.label, issues.join(' | ')].filter(Boolean).join(' | ')}
               >
                 {issues.length > 0 ? 'FIX' : ''}
               </div>
@@ -69,10 +100,13 @@ export default function CalendarGrid({
           <div className="grid__employeeCell">כמות משמרות</div>
           {monthDays.map((day) => {
             const isValid = dayShiftCountStatus?.[day.dayNumber] === 'ok';
+            const event = dayEvents?.[day.dayNumber];
             return (
               <div
                 key={`shift-count-${day.dayNumber}`}
-                className={day.isWeekend ? 'grid__dayCell grid__fixCell is-weekend' : 'grid__dayCell grid__fixCell'}
+                className={getDayCellClassName(day, event, 'grid__fixCell')}
+                style={getDayCellStyle(event)}
+                title={event?.label || undefined}
               >
                 {isValid ? '' : 'FIX'}
               </div>
@@ -84,42 +118,57 @@ export default function CalendarGrid({
   );
 }
 
-function renderHeaderRows(monthDays, keyPrefix) {
+function renderHeaderRows(monthDays, keyPrefix, dayEvents) {
   return (
     <>
       <div className="grid__header" key={`${keyPrefix}-header-days`}>
         <div className="grid__employeeCell">יום</div>
-        {monthDays.map((day) => (
-          <div
-            key={`${keyPrefix}-day-${day.dayNumber}`}
-            className={
-              day.isWeekend
-                ? 'grid__dayCell grid__headerCell grid__dayNumberCell is-weekend'
-                : 'grid__dayCell grid__headerCell grid__dayNumberCell'
-            }
-          >
-            {day.dayNumber}
-          </div>
-        ))}
+        {monthDays.map((day) => {
+          const event = dayEvents?.[day.dayNumber];
+          return (
+            <div
+              key={`${keyPrefix}-day-${day.dayNumber}`}
+              className={getDayCellClassName(day, event, 'grid__headerCell grid__dayNumberCell')}
+              style={getDayCellStyle(event)}
+              title={event?.label || undefined}
+            >
+              {day.dayNumber}
+            </div>
+          );
+        })}
       </div>
 
       <div className="grid__header" key={`${keyPrefix}-header-weekdays`}>
         <div className="grid__employeeCell grid__headerCell grid__headerBottom">שם עובד</div>
-        {monthDays.map((day) => (
-          <div
-            key={`${keyPrefix}-weekday-${day.dayNumber}`}
-            className={
-              day.isWeekend
-                ? 'grid__dayCell grid__headerCell grid__headerBottom grid__weekdayLabelCell is-weekend'
-                : 'grid__dayCell grid__headerCell grid__headerBottom grid__weekdayLabelCell'
-            }
-          >
-            {day.weekdayLabel}
-          </div>
-        ))}
+        {monthDays.map((day) => {
+          const event = dayEvents?.[day.dayNumber];
+          return (
+            <div
+              key={`${keyPrefix}-weekday-${day.dayNumber}`}
+              className={getDayCellClassName(day, event, 'grid__headerCell grid__headerBottom grid__weekdayLabelCell')}
+              style={getDayCellStyle(event)}
+              title={event?.label || undefined}
+            >
+              {day.weekdayLabel}
+            </div>
+          );
+        })}
       </div>
     </>
   );
+}
+
+function getDayCellClassName(day, event, extraClass = '') {
+  return [
+    'grid__dayCell',
+    extraClass,
+    day.isWeekend ? 'is-weekend' : '',
+    event ? 'is-special-day' : ''
+  ].filter(Boolean).join(' ');
+}
+
+function getDayCellStyle(event) {
+  return event ? { '--special-day-bg': event.color ?? '#fff2cc' } : undefined;
 }
 
 function normalizeCellValue(cell) {

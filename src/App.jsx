@@ -121,10 +121,12 @@ export default function App() {
       monthKey: scheduleState.monthKey,
       schedule: structuredClone(scheduleState.schedule ?? {}),
       scheduleMeta: structuredClone(scheduleState.scheduleMeta ?? {}),
+      dayEvents: structuredClone(scheduleState.dayEvents ?? {}),
       signature: serializeScheduleState(
         scheduleState.monthKey,
         scheduleState.schedule ?? {},
-        scheduleState.scheduleMeta ?? {}
+        scheduleState.scheduleMeta ?? {},
+        scheduleState.dayEvents ?? {}
       ),
       dirtyToken
     });
@@ -170,7 +172,8 @@ export default function App() {
         try {
           await saveScheduleByMonth(nextSave.monthKey, {
             schedule: nextSave.schedule,
-            scheduleMeta: nextSave.scheduleMeta
+            scheduleMeta: nextSave.scheduleMeta,
+            dayEvents: nextSave.dayEvents
           });
 
           if (isCloudDisabled()) {
@@ -209,7 +212,8 @@ export default function App() {
 
     const schedule = loaded?.schedule ?? {};
     const scheduleMeta = loaded?.scheduleMeta ?? {};
-    const cloudSignature = serializeScheduleState(monthKey, schedule, scheduleMeta);
+    const dayEvents = loaded?.dayEvents ?? {};
+    const cloudSignature = serializeScheduleState(monthKey, schedule, scheduleMeta, dayEvents);
     lastSavedSignaturesRef.current.set(monthKey, cloudSignature);
 
     const dirtyToken = getScheduleDirtyToken(monthKey);
@@ -222,7 +226,8 @@ export default function App() {
       const localSignature = serializeScheduleState(
         monthKey,
         currentState.schedule,
-        currentState.scheduleMeta
+        currentState.scheduleMeta,
+        currentState.dayEvents
       );
 
       if (localSignature !== cloudSignature) {
@@ -236,7 +241,7 @@ export default function App() {
 
     dispatch({
       type: 'LOAD_MONTH',
-      payload: { schedule, scheduleMeta }
+      payload: { schedule, scheduleMeta, dayEvents }
     });
     return { ignored: false, hasLocalEdits: false };
   };
@@ -427,7 +432,12 @@ export default function App() {
       return;
     }
 
-    const signature = serializeScheduleState(state.monthKey, state.schedule, state.scheduleMeta);
+    const signature = serializeScheduleState(
+      state.monthKey,
+      state.schedule,
+      state.scheduleMeta,
+      state.dayEvents
+    );
     if (signature === lastSavedSignaturesRef.current.get(state.monthKey)) {
       clearScheduleDirty(state.monthKey, dirtyToken);
       return;
@@ -435,7 +445,7 @@ export default function App() {
 
     queueAutoSave(state, dirtyToken);
     void flushAutoSave();
-  }, [authorized, cloudEnabled, state, state.monthKey, state.schedule, state.scheduleMeta]);
+  }, [authorized, cloudEnabled, state, state.monthKey, state.schedule, state.scheduleMeta, state.dayEvents]);
 
   const handleSignIn = async () => {
     setAuthBusy(true);
@@ -552,6 +562,17 @@ export default function App() {
     }
   };
 
+  const handleSaveDayEvent = (dayNumber, dayEvent) => {
+    const dayEvents = { ...(state.dayEvents ?? {}) };
+    if (dayEvent) {
+      dayEvents[dayNumber] = dayEvent;
+    } else {
+      delete dayEvents[dayNumber];
+    }
+    dispatch({ type: 'SET_DAY_EVENTS', payload: dayEvents });
+    setMessage(dayEvent ? 'נשמר סימון ליום ' + dayNumber : 'הוסר הסימון מיום ' + dayNumber);
+  };
+
   const handleExportPdf = async () => {
     if (!exportRef.current) {
       return;
@@ -654,7 +675,8 @@ export default function App() {
       const normalizedMeta = loaded.scheduleMeta ?? {};
       const result = applyCloudSnapshot(monthKey, {
         schedule: normalizedSchedule,
-        scheduleMeta: normalizedMeta
+        scheduleMeta: normalizedMeta,
+        dayEvents: loaded.dayEvents ?? {}
       });
 
       if (result.ignored) {
@@ -742,7 +764,14 @@ export default function App() {
           </button>
         </div>
       )}
-      <ThemePanel open={themePanelOpen} authReady={authorized} />
+      <ThemePanel
+        open={themePanelOpen}
+        authReady={authorized}
+        monthKey={state.monthKey}
+        monthDays={monthMeta.days}
+        dayEvents={state.dayEvents}
+        onSaveDayEvent={handleSaveDayEvent}
+      />
 
       <main className="app__main">
         <section className={`board ${exportMode ? 'exportMode' : ''}`} ref={exportRef}>
@@ -754,6 +783,7 @@ export default function App() {
             monthDays={monthMeta.days}
             employees={state.employees}
             schedule={state.schedule}
+            dayEvents={state.dayEvents}
             dayIssues={validation.dayIssues}
             dayShiftCountStatus={validation.dayShiftCountStatus}
             employeeIssues={validation.employeeIssues}
@@ -784,11 +814,12 @@ export default function App() {
   );
 }
 
-function serializeScheduleState(monthKey, schedule, scheduleMeta) {
+function serializeScheduleState(monthKey, schedule, scheduleMeta, dayEvents = {}) {
   return JSON.stringify({
     monthKey,
     schedule,
-    scheduleMeta
+    scheduleMeta,
+    dayEvents
   });
 }
 
