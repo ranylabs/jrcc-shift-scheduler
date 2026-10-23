@@ -618,8 +618,9 @@ export default function App() {
       const offsetY = margin;
 
       pdf.addImage(image, 'PNG', offsetX, offsetY, imageWidth, imageHeight, undefined, 'FAST');
-      pdf.save(`schedule-${state.monthKey}.pdf`);
-      setMessage(`ה־PDF יוצא עבור ${state.monthKey}`);
+      const monthLabel = formatPrintMonthLabel(state.monthKey);
+      pdf.save(`${monthLabel}.pdf`);
+      setMessage(`ה־PDF יוצא עבור ${monthLabel}`);
     } finally {
       exportRef.current.style.width = previousWidth;
       exportRef.current.style.maxWidth = previousMaxWidth;
