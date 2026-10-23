@@ -420,9 +420,9 @@ select {
 
 .schedule-cell {
   width: 100%;
-  height: var(--cell-height);
-  min-height: var(--cell-height);
-  max-height: var(--cell-height);
+  height: calc(var(--cell-height) - var(--grid-border-width) - var(--grid-border-width));
+  min-height: 0;
+  max-height: 100%;
   padding: 0 !important;
   margin: 0 !important;
   border: none !important;

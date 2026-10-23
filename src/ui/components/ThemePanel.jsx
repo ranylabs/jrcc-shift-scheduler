@@ -77,7 +77,6 @@ export default function ThemePanel({
   const [dayEventLabel, setDayEventLabel] = useState('');
   const [dayEventSymbol, setDayEventSymbol] = useState('');
   const [dayEventColor, setDayEventColor] = useState('#fff2cc');
-  const selectedDayEvent = dayEvents?.[selectedDayNumber] ?? null;
 
   useEffect(() => {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -146,6 +145,13 @@ export default function ThemePanel({
     applyTheme(DEFAULT_THEME);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_THEME));
     saveGlobalTheme(DEFAULT_THEME);
+  };
+
+  const handleRemoveDayEvent = () => {
+    onSaveDayEvent?.(Number(selectedDayNumber), null);
+    setDayEventLabel('');
+    setDayEventSymbol('');
+    setDayEventColor('#fff2cc');
   };
 
   if (!open) {
@@ -256,11 +262,13 @@ export default function ThemePanel({
           >
             שמירת סימון
           </button>
-          {selectedDayEvent ? (
-            <button type="button" onClick={() => onSaveDayEvent?.(Number(selectedDayNumber), null)}>
-              הסרת סימון
-            </button>
-          ) : null}
+          <button
+            type="button"
+            onClick={handleRemoveDayEvent}
+            title="מסיר את התיאור, האות והצבע מהתאריך הנבחר"
+          >
+            הסרת הסימון מהיום
+          </button>
         </div>
       </div>
     </section>
